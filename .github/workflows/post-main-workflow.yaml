@@ -27,28 +27,21 @@ jobs:
     
   build-image:
     name: Build manager image
-    if: false
-    uses: kyma-project/test-infra/.github/workflows/image-builder.yml@main # Usage: kyma-project/test-infra/.github/workflows/image-builder.yml@main
-    with:
-      name: istio/main/istio-manager
-      dockerfile: Dockerfile
-      context: .
-      build-args: |
-        VERSION=${{ github.ref_name }}
-      tags: "${{ github.sha }}"
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
   build-experimental-image:
     name: Build manager image - experimental
-    if: false
-    uses: kyma-project/test-infra/.github/workflows/image-builder.yml@main # Usage: kyma-project/test-infra/.github/workflows/image-builder.yml@main
-    with:
-      name: istio/main/istio-manager
-      dockerfile: Dockerfile
-      context: .
-      build-args: |
-        VERSION=${{ github.ref_name }}-experimental
-        GO_BUILD_TAGS=experimental
-      tags: "${{ github.sha }}-experimental"
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
   istio-upgrade-test-k3d:
     name: Istio upgrade integration test K3D
