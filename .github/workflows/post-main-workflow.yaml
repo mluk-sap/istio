@@ -27,7 +27,7 @@ jobs:
     
   build-image:
     name: Build manager image
-    if: ${{ github.event.pull_request.draft == false }}
+    if: false
     uses: kyma-project/test-infra/.github/workflows/image-builder.yml@main # Usage: kyma-project/test-infra/.github/workflows/image-builder.yml@main
     with:
       name: istio/main/istio-manager
@@ -39,7 +39,7 @@ jobs:
 
   build-experimental-image:
     name: Build manager image - experimental
-    if: ${{ github.event.pull_request.draft == false }}
+    if: false
     uses: kyma-project/test-infra/.github/workflows/image-builder.yml@main # Usage: kyma-project/test-infra/.github/workflows/image-builder.yml@main
     with:
       name: istio/main/istio-manager
@@ -60,7 +60,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/upgrade-integration-test
         with:
-          operator-image-name: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:${{github.sha}}"
+          operator-image-name: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:3b3c275c0fc1e833c3bcb8b5168b4384a5e9342c"
           target_branch: ${{ github.ref_name }}
 
   istio-upgrade-test-aws:
@@ -76,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_BRANCH: ${{ github.ref_name }}
         with:
-          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:${{github.sha}}"
+          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:3b3c275c0fc1e833c3bcb8b5168b4384a5e9342c"
           gardener_secret: ${{ secrets.GARDENER_TOKEN }}
           gardener_project_name: ${{ vars.GARDENER_PROJECT_NAME }}
           gardener_provider: aws
@@ -99,7 +99,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           test_make_target: ${{ matrix.test_make_target }}
-          operator-image-name: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:${{github.sha}}"
+          operator-image-name: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:3b3c275c0fc1e833c3bcb8b5168b4384a5e9342c"
           servers-memory: "16"
           agents: 2
 
@@ -119,7 +119,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:${{github.sha}}"
+          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:3b3c275c0fc1e833c3bcb8b5168b4384a5e9342c"
           gardener_secret: ${{ secrets.GARDENER_TOKEN }}
           gardener_project_name: ${{ vars.GARDENER_PROJECT_NAME }}
           gardener_provider: gcp
@@ -137,7 +137,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:${{github.sha}}"
+          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:3b3c275c0fc1e833c3bcb8b5168b4384a5e9342c"
           gardener_secret: ${{ secrets.GARDENER_TOKEN }}
           gardener_project_name: ${{ vars.GARDENER_PROJECT_NAME }}
           gardener_provider: aws
@@ -155,7 +155,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:${{github.sha}}"
+          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:3b3c275c0fc1e833c3bcb8b5168b4384a5e9342c"
           gardener_secret: ${{ secrets.GARDENER_TOKEN }}
           gardener_project_name: ${{ vars.GARDENER_PROJECT_NAME }}
           gardener_provider: gcp
@@ -177,7 +177,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:${{github.sha}}"
+          manager_image: "europe-docker.pkg.dev/kyma-project/prod/istio/main/istio-manager:3b3c275c0fc1e833c3bcb8b5168b4384a5e9342c"
           gardener_secret: ${{ secrets.GARDENER_TOKEN }}
           gardener_project_name: ${{ vars.GARDENER_PROJECT_NAME }}
           gardener_provider: aws
