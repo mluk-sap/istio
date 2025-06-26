@@ -3,7 +3,6 @@ package exec
 import (
 	"errors"
 	"fmt"
-	"github.com/kyma-project/istio/operator/tests/e2e/e2e/logging"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -28,7 +27,7 @@ func (c *Command) Description() string {
 func (c *Command) Execute(t *testing.T, _ client.Client) error {
 	splitCommand := strings.Split(c.Command, " ")
 	cmd := exec.Command(splitCommand[0], splitCommand[1:]...) // #nosec G204
-	logging.Debugf(t, "Executing command: %s", cmd.String())
+	t.Logf("Executing command: %s", cmd.String())
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -43,7 +42,7 @@ func (c *Command) Execute(t *testing.T, _ client.Client) error {
 		return fmt.Errorf("recieved err=%w; Output=%s", err, string(output))
 	}
 
-	logging.Debugf(t, "Command output:\n%s", string(output))
+	t.Logf("Command output:\n%s", string(output))
 	c.Output = output
 	c.ExitCode = 0
 
@@ -52,17 +51,17 @@ func (c *Command) Execute(t *testing.T, _ client.Client) error {
 
 func (c *Command) Cleanup(t *testing.T, _ client.Client) error {
 	if c.CleanupCmd == "" {
-		logging.Debugf(t, "No cleanup command specified, skipping cleanup")
+		t.Logf("No cleanup command specified, skipping cleanup")
 		return nil
 	}
 
 	splitCommand := strings.Split(c.CleanupCmd, " ")
 	cmd := exec.Command(splitCommand[0], splitCommand[1:]...) // #nosec G204
-	logging.Debugf(t, "Executing cleanup command: %s", cmd.String())
+	t.Logf("Executing cleanup command: %s", cmd.String())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return err
 	}
-	logging.Debugf(t, "Cleanup command output:\n%s", string(output))
+	t.Logf("Cleanup command output:\n%s", string(output))
 	return nil
 }

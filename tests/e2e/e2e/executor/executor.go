@@ -2,7 +2,6 @@ package executor
 
 import (
 	"fmt"
-	"github.com/kyma-project/istio/operator/tests/e2e/e2e/logging"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,7 +80,6 @@ func NewExecutorWithOptionsFromEnv(t *testing.T) *Executor {
 		IsCi:        os.Getenv("CI") == "true",
 		OnlyCleanup: os.Getenv("ONLY_CLEANUP") == "true",
 	}
-
 	return NewExecutor(t, options)
 }
 
@@ -103,19 +101,19 @@ func NewExecutor(t *testing.T, options Options) *Executor {
 func (e *Executor) RunStep(step Step) error {
 	e.steps.Push(step)
 	if e.OnlyCleanup {
-		logging.Debugf(e.t, "Skipping step execution in cleanup mode: %s", step.Description())
+		e.t.Logf("Skipping step execution in cleanup mode: %s", step.Description())
 		return nil
 	}
 
-	logging.Tracef(e.t, step.Description())
+	e.t.Logf(step.Description())
 
-	logging.Debugf(e.t, "Executing step: %s", step.Description())
+	e.t.Logf("Executing step: %s", step.Description())
 	if err := step.Execute(e.t, e.K8SClient); err != nil {
-		logging.Errorf(e.t, "Failed to execute step: %s err=%s", step.Description(), err.Error())
+		e.t.Logf("Failed to execute step: %s err=%s", step.Description(), err.Error())
 		return err
 	}
 
-	logging.Untracef(e.t, step.Description())
+	e.t.Logf(step.Description())
 	return nil
 }
 
@@ -125,25 +123,25 @@ func (e *Executor) RunStep(step Step) error {
 // it will only perform cleanup without executing any steps.
 func (e *Executor) Cleanup() {
 	if e.IsCi && !e.OnlyCleanup {
-		logging.Infof(e.t, "Skipping cleanup in CI environment")
+		e.t.Logf("Skipping cleanup in CI environment")
 		return
 	}
 
-	logging.Tracef(e.t, "Starting cleanup")
-	defer logging.Untracef(e.t, "Finished cleanup")
+	e.t.Logf("Starting cleanup")
+	defer e.t.Logf("Finished cleanup")
 
 	// Perform cleanup in reverse order
 	for !e.steps.empty() {
 		step := e.steps.Pop()
 		if cleaner, ok := step.(Cleaner); ok {
-			logging.Tracef(e.t, fmt.Sprintf("Cleaning up step: %s", step.Description()))
+			e.t.Logf(fmt.Sprintf("Cleaning up step: %s", step.Description()))
 			err := cleaner.Cleanup(e.t, e.K8SClient)
-			logging.Untracef(e.t, fmt.Sprintf("Cleaning up step: %s", step.Description()))
+			e.t.Logf(fmt.Sprintf("Cleaning up step: %s", step.Description()))
 			if err != nil {
 				assert.NoError(e.t, err)
 			}
 		} else {
-			logging.Tracef(e.t, "Skipping cleanup for step: %s (not implementing Cleaner)", step.Description())
+			e.t.Logf("Skipping cleanup for step: %s (not implementing Cleaner)", step.Description())
 		}
 	}
 }

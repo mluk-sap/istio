@@ -3,7 +3,6 @@ package pod
 import (
 	"errors"
 	"fmt"
-	"github.com/kyma-project/istio/operator/tests/e2e/e2e/logging"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +22,7 @@ func (p *Create) Execute(t *testing.T, k8sClient client.Client) error {
 		return errors.New("pod is nil")
 	}
 
-	logging.Debugf(t, "Creating Pod: %+v", *p.Pod)
+	t.Logf("Creating Pod: %+v", *p.Pod)
 
 	err := k8sClient.Create(t.Context(), p.Pod)
 	if err != nil {

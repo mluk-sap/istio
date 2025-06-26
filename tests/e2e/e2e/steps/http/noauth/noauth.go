@@ -1,7 +1,6 @@
 package noauth
 
 import (
-	"github.com/kyma-project/istio/operator/tests/e2e/e2e/logging"
 	"net/http"
 	"testing"
 
@@ -23,7 +22,7 @@ func (r *Request) Description() string {
 }
 
 func (r *Request) Execute(t *testing.T, _ client.Client) error {
-	logging.Debugf(t, "Executing HTTP request: %s %s", r.Method, r.URL)
+	t.Logf("Executing HTTP request: %s %s", r.Method, r.URL)
 	req, err := http.NewRequestWithContext(t.Context(), r.Method, r.URL, nil)
 	if err != nil {
 		return err
@@ -40,11 +39,11 @@ func (r *Request) Execute(t *testing.T, _ client.Client) error {
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			logging.Errorf(t, "Failed to close response body: %v", closeErr)
+			t.Logf("Failed to close response body: %v", closeErr)
 		}
 	}()
 
-	logging.Debugf(t, "Received response: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+	t.Logf("Received response: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
 	r.Response = resp
 	_, err = resp.Body.Read(r.ResponseBody)
 	if err != nil {

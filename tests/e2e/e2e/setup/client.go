@@ -1,7 +1,6 @@
 package setup
 
 import (
-	"github.com/kyma-project/istio/operator/tests/e2e/e2e/logging"
 	"net/http"
 	"testing"
 
@@ -43,13 +42,13 @@ const KubernetesClientLogPrefix = "[K8S] "
 //
 // NOTE: Current implementation does not include retry logic, but it can be extended to do so.
 func (l *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	logging.Debugf(l.t, KubernetesClientLogPrefix+"Request to API Server: %s %s", req.Method, req.URL)
+	l.t.Logf(KubernetesClientLogPrefix+"Request to API Server: %s %s", req.Method, req.URL)
 
 	resp, err := l.rt.RoundTrip(req)
 	if err != nil {
-		logging.Errorf(l.t, KubernetesClientLogPrefix+"Request to API Server failed: %s %s", req.URL, err.Error())
+		l.t.Errorf(KubernetesClientLogPrefix+"Request to API Server failed: %s %s", req.URL, err.Error())
 		return nil, err
 	}
-	logging.Debugf(l.t, KubernetesClientLogPrefix+"Response from API Server: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+	l.t.Logf(KubernetesClientLogPrefix+"Response from API Server: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
 	return resp, nil
 }

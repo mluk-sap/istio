@@ -1,7 +1,6 @@
 package httprequest_test
 
 import (
-	"github.com/kyma-project/istio/operator/tests/e2e/e2e/logging"
 	"github.com/stretchr/testify/require"
 	"testing"
 
@@ -26,7 +25,7 @@ func TestHTTPRequest(t *testing.T) {
 		}
 
 		// when
-		err := testExecutor.RunStep(httpRequest)
+		err := testExecutor.RunStepWithRetries(httpRequest, retryOpts, successCondition)
 
 		// then
 		require.NoError(t, err)
@@ -34,7 +33,8 @@ func TestHTTPRequest(t *testing.T) {
 
 		response := httpRequest.Response
 		require.NoError(t, err, "Failed to read response body")
-		logging.Infof(t, "Response Status: %s\n", response.Status)
-		logging.Infof(t, "Response Body: %s\n", string(httpRequest.ResponseBody))
+		t.Logf("Response Status: %s\n", response.Status)
+		t.Logf("Response Body: %s\n", string(httpRequest.ResponseBody))
+		require.Fail(t, "Test wywalenia")
 	})
 }

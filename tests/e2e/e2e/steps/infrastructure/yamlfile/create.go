@@ -2,7 +2,6 @@ package yamlfile
 
 import (
 	"fmt"
-	"github.com/kyma-project/istio/operator/tests/e2e/e2e/logging"
 	"os"
 	"testing"
 
@@ -30,7 +29,7 @@ func (c *Create) Execute(t *testing.T, k8sClient client.Client) error {
 		return yamlErr
 	}
 
-	logging.Debugf(t, "Creating object from YAML:\n%+v", string(fileYaml))
+	t.Logf("Creating object from YAML:\n%+v", string(fileYaml))
 	if createErr := k8sClient.Create(t.Context(), unstructuredObject); createErr != nil {
 		return createErr
 	}
