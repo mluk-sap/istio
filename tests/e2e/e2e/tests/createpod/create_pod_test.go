@@ -25,7 +25,7 @@ func TestPodCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("test1", func(t *testing.T) {
+	t.Run("test", func(t *testing.T) {
 		subtestId := setup.GenerateRandomTestId()
 		podName := fmt.Sprintf("test-%s", subtestId)
 		t.Parallel()
@@ -53,45 +53,6 @@ func TestPodCreation(t *testing.T) {
 		}
 
 		// when
-		err := createPod(t, k8sClient, pod)
-
-		// then
-		require.NoError(t, err)
-
-		retrievedPod, err := getPod(t, k8sClient, namespaceName, podName)
-		require.NoError(t, err)
-		assert.NotNil(t, retrievedPod)
-	})
-
-	t.Run("test2", func(t *testing.T) {
-		subtestId := setup.GenerateRandomTestId()
-		podName := fmt.Sprintf("test-%s", subtestId)
-		t.Parallel()
-
-		// given
-		pod := &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespaceName,
-				Name:      podName,
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name:  "test-container",
-						Image: "nginx:latest",
-						Ports: []corev1.ContainerPort{
-							{
-								ContainerPort: 80,
-								Name:          "http",
-							},
-						},
-					},
-				},
-			},
-		}
-
-		// when
-		t.Logf("Creating pod %s", podName)
 		err := createPod(t, k8sClient, pod)
 
 		// then

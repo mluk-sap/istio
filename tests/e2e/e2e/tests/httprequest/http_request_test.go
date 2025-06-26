@@ -25,7 +25,7 @@ func TestHTTPRequest(t *testing.T) {
 		}
 
 		// when
-		err := testExecutor.RunStepWithRetries(httpRequest, retryOpts, successCondition)
+		err := testExecutor.RunStep(httpRequest)
 
 		// then
 		require.NoError(t, err)
