@@ -10,7 +10,7 @@ deploy-helm:
 	helm dependency update load-testing
 
 	helm upgrade --install load-testing load-testing --set IngressGatewayIP=$(shell ip=$$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'); hostname=$$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'); if [ -n "$$ip" ]; then echo "$$ip"; else echo "$$hostname"; fi) --set Domain=${KYMA_DOMAIN} --create-namespace --wait
-	until curl --silent --output /dev/null "https://any-host.${KYMA_DOMAIN}/"; echo "Waiting for the load balancer to respond on https://any-host.${KYMA_DOMAIN}"; do sleep 10; done
+	until [ "$(curl -s -o /dev/null -w "%{http_code}" "https://hello.${KYMA_DOMAIN}/get")" = "200" ]; do  echo "Waiting for 200 OK from https://hello.${KYMA_DOMAIN}/get";  sleep 10; done
 
 test-deploy:
 	kubectl rollout status deployment/load-testing
@@ -19,7 +19,6 @@ test-deploy:
 test-performance: deploy-max-replicas-istio deploy-helm test-deploy
 	kubectl patch deployment/load-testing --type merge --patch-file istio-disabled.yaml
 	kubectl rollout status deployment/load-testing
-	sleep 60
 	kubectl exec -q $(shell kubectl get pods --selector=app=k6 -o jsonpath='{.items[0].metadata.name}') -- k6 run run.js -d 1m --vus 500 --out influxdb=http://load-testing-influxdb:8086/k6 --log-output none --system-tags=method,name,status,tag -e DOMAIN=${KYMA_DOMAIN};\
 	EXIT_CODE=$$?;\
 	echo "Performance test without sidecar test completed with exit code $$EXIT_CODE"
@@ -28,7 +27,6 @@ test-performance: deploy-max-replicas-istio deploy-helm test-deploy
 
 	kubectl patch deployment/load-testing --type merge --patch-file istio-enabled.yaml
 	kubectl rollout status deployment/load-testing
-	sleep 60
 	kubectl exec -q $(shell kubectl get pods --selector=app=k6 -o jsonpath='{.items[0].metadata.name}') -- k6 run run.js -d 1m --vus 500 --out influxdb=http://load-testing-influxdb:8086/k6 --log-output none --system-tags=method,name,status,tag -e DOMAIN=${KYMA_DOMAIN};\
 	EXIT_CODE=$$?;\
 	echo "Performance test with sidecar test completed with exit code $$EXIT_CODE"
