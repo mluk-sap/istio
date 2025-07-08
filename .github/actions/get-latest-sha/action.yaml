@@ -12,4 +12,4 @@ runs:
       uses: actions/github-script@v7
       with:
         script: |
-          core.setOutput('sha', '636223680c6b27cd9d7555e31483bf43da50d008');
+          core.setOutput('sha', 'e3b34272fa0e645ff9641fe720f84daaa77fd276');
