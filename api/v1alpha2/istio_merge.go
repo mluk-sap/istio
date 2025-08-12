@@ -76,6 +76,24 @@ func (m *meshConfigBuilder) BuildPrometheusMergeConfig(prometheusMerge bool) *me
 	return m
 }
 
+func (m *meshConfigBuilder) BuildTrustDomain(trustDomain string) *meshConfigBuilder {
+	err := m.c.SetPath("trustDomain", trustDomain)
+	if err != nil {
+		return nil
+	}
+
+	return m
+}
+
+func (m *meshConfigBuilder) BuildTrustDomainAliases(trustDomainAliases []string) *meshConfigBuilder {
+	err := m.c.SetPath("trustDomainAliases", trustDomainAliases)
+	if err != nil {
+		return nil
+	}
+
+	return m
+}
+
 func (m *meshConfigBuilder) AddProxyMetadata(key, value string) (*meshConfigBuilder, error) {
 	err := m.c.SetPath("defaultConfig.proxyMetadata."+key, value)
 	if err != nil {
@@ -176,6 +194,8 @@ func (i *Istio) mergeConfig(op iopv1alpha1.IstioOperator) (iopv1alpha1.IstioOper
 		BuildNumTrustedProxies(i.Spec.Config.NumTrustedProxies).
 		BuildExternalAuthorizerConfiguration(i.Spec.Config.Authorizers).
 		BuildPrometheusMergeConfig(i.Spec.Config.Telemetry.Metrics.PrometheusMerge).
+		BuildTrustDomain(i.Spec.Config.TrustDomain).
+		BuildTrustDomainAliases(i.Spec.Config.TrustDomainAliases).
 		Build()
 
 	op.Spec.MeshConfig = newMeshConfig

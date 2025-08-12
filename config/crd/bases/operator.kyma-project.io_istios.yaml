@@ -1419,6 +1419,12 @@ spec:
                             type: boolean
                         type: object
                     type: object
+                  trustDomain:
+                    type: string
+                  trustDomainAliases:
+                    items:
+                      type: string
+                    type: array
                 type: object
               experimental:
                 properties:

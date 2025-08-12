@@ -26,6 +26,9 @@ type Config struct {
 	// Defines the telemetry configuration of Istio.
 	// +kubebuilder:validation:Optional
 	Telemetry Telemetry `json:"telemetry,omitempty"`
+
+	TrustDomain        string   `json:"trustDomain,omitempty"`
+	TrustDomainAliases []string `json:"trustDomainAliases,omitempty"`
 }
 
 type Components struct {
