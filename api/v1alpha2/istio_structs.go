@@ -29,6 +29,7 @@ type Config struct {
 
 	TrustDomain        string   `json:"trustDomain,omitempty"`
 	TrustDomainAliases []string `json:"trustDomainAliases,omitempty"`
+	RootNamespace      string   `json:"rootNamespace,omitempty"`
 }
 
 type Components struct {

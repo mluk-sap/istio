@@ -1405,6 +1405,8 @@ spec:
                     maximum: 4294967295
                     minimum: 0
                     type: integer
+                  rootNamespace:
+                    type: string
                   telemetry:
                     description: Defines the telemetry configuration of Istio.
                     properties:

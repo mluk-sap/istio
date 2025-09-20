@@ -50,8 +50,20 @@ func newMeshConfigBuilder(op iopv1alpha1.IstioOperator) (*meshConfigBuilder, err
 	if err != nil {
 		return nil, err
 	}
-
 	return &meshConfigBuilder{c: c}, nil
+}
+
+func (m *meshConfigBuilder) BuildRootNamespace(rootNamespace string) *meshConfigBuilder {
+	if rootNamespace == "" {
+		return m
+	}
+
+	err := m.c.SetPath("rootNamespace", rootNamespace)
+	if err != nil {
+		return nil
+	}
+
+	return m
 }
 
 func (m *meshConfigBuilder) BuildNumTrustedProxies(numTrustedProxies *int) *meshConfigBuilder {
@@ -196,6 +208,7 @@ func (i *Istio) mergeConfig(op iopv1alpha1.IstioOperator) (iopv1alpha1.IstioOper
 		BuildPrometheusMergeConfig(i.Spec.Config.Telemetry.Metrics.PrometheusMerge).
 		BuildTrustDomain(i.Spec.Config.TrustDomain).
 		BuildTrustDomainAliases(i.Spec.Config.TrustDomainAliases).
+		BuildRootNamespace(i.Spec.Config.RootNamespace).
 		Build()
 
 	op.Spec.MeshConfig = newMeshConfig
