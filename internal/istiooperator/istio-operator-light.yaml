@@ -181,6 +181,7 @@ spec:
         BOOTSTRAP_XDS_AGENT: "true"
         CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE: "4096"
         WORKLOAD_RSA_KEY_SIZE: "3072"
+        ISTIO_DUAL_STACK: "true"
       tracingServiceName: CANONICAL_NAME_ONLY
     defaultProviders:
       tracing: []
@@ -278,6 +279,7 @@ spec:
           name: egressgateway-ca-certs
           secretName: istio-egressgateway-ca-certs
         type: ClusterIP
+        ipFamilyPolicy: RequireDualStack
       istio-ingressgateway:
         autoscaleEnabled: true
         env: {}
@@ -300,6 +302,7 @@ spec:
             DO NOT EDIT - This resource is managed by Kyma.
             Any modifications are discarded and the resource is reverted to the original state.
         type: LoadBalancer
+        ipFamilyPolicy: RequireDualStack
     global:
       configValidation: true
       defaultNodeSelector: {}
@@ -385,12 +388,14 @@ spec:
       deploymentLabels: null
       env:
         CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE: "4096"
+        ISTIO_DUAL_STACK: "true"
       image: pilot
       keepaliveMaxServerConnectionAge: 30m
       nodeSelector: {}
       podLabels: {}
       replicaCount: 1
       traceSampling: 1
+      ipFamilyPolicy: RequireDualStack
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
       rewriteAppHTTPProbe: true
