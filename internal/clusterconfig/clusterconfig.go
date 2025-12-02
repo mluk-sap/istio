@@ -348,7 +348,8 @@ func (c ClusterFlavour) clusterConfiguration(clusterProvider string) (ClusterCon
 					"gateways": map[string]interface{}{
 						"istio-ingressgateway": map[string]interface{}{
 							"serviceAnnotations": map[string]string{
-								"service.beta.kubernetes.io/aws-load-balancer-type": "external",
+								"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+								"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "dualstack",
 							},
 						},
 					},
