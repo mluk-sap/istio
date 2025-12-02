@@ -109,7 +109,7 @@ var (
 							loadBalancerTypeAnnotation:          loadBalancerType,
 							loadBalancerSchemeAnnotation:        loadBalancerScheme,
 							loadBalancerNlbTargetTypeAnnotation: loadBalancerNlbTargetType,
-							loadBalancerDualStack:               loadBalancerDualStack,
+							loadBalancerDualStackAnnotation:     loadBalancerDualStack,
 						},
 					},
 				},
