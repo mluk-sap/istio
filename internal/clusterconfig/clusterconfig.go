@@ -139,7 +139,7 @@ const (
 	loadBalancerNlbTargetTypeAnnotation = "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"
 	loadBalancerNlbTargetType           = "instance"
 	loadBalancerTypeAnnotation          = "service.beta.kubernetes.io/aws-load-balancer-type"
-	loadBalancerType                    = "nlb"
+	loadBalancerType                    = "external"
 	loadBalancerDualStackAnnotation     = "service.beta.kubernetes.io/aws-load-balancer-ip-address-type"
 	loadBalancerDualStack               = "dualstack"
 
@@ -348,7 +348,7 @@ func (c ClusterFlavour) clusterConfiguration(clusterProvider string) (ClusterCon
 					"gateways": map[string]interface{}{
 						"istio-ingressgateway": map[string]interface{}{
 							"serviceAnnotations": map[string]string{
-								"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+								"service.beta.kubernetes.io/aws-load-balancer-type": "external",
 							},
 						},
 					},
