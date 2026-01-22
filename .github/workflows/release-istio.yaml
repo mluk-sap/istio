@@ -262,7 +262,7 @@ jobs:
   create-draft-release:
     name: Create draft release
     runs-on: ubuntu-latest
-    needs: [ check-prerequisites, build-image, build-image-experimental, unit-tests, istio-upgrade-test-aws, istio-upgrade-test-k3d, istio-e2e-test-k3d, istio-e2e-test-gcp, istio-e2e-test-aws ]
+    needs: [ check-prerequisites, unit-tests, istio-upgrade-test-aws, istio-upgrade-test-k3d, istio-e2e-test-k3d, istio-e2e-test-gcp, istio-e2e-test-aws ]
     outputs:
       release_id: ${{ steps.create-draft-release.outputs.release_id }}
     steps:
