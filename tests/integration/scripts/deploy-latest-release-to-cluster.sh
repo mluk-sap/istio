@@ -12,10 +12,10 @@ TAG=$(git describe --tags --abbrev=0)
 if [ "${TAG%.*}" == "${TARGET_BRANCH#release\-}" ]
 then
   echo "Installing Istio ${TAG}"
-  RELEASE_MANIFEST_URL="https://github.com/kyma-project/istio/releases/download/${TAG}/istio-manager.yaml"
+  RELEASE_MANIFEST_URL="https://github.com/kyma-project/istio/releases/download/1.24.0/istio-manager.yaml"
   curl -L "$RELEASE_MANIFEST_URL" | kubectl apply -f -
 else
   echo "Installing Istio from latest release"
-  RELEASE_MANIFEST_URL="https://github.com/kyma-project/istio/releases/latest/download/istio-manager.yaml"
+  RELEASE_MANIFEST_URL="https://github.com/kyma-project/istio/releases/download/1.24.0/istio-manager.yaml"
   curl -L "$RELEASE_MANIFEST_URL" | kubectl apply -f -
 fi
