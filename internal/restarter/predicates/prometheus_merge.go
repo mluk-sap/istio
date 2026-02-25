@@ -48,10 +48,6 @@ func (p PrometheusMergeRestartPredicate) Matches(pod v1.Pod) bool {
 	return hasPrometheusMergePath || hasPrometheusMergePort
 }
 
-func (p PrometheusMergeRestartPredicate) MustMatch() bool {
-	return false
-}
-
 func (p PrometheusMergeRestartPredicate) Name() string {
 	return "PrometheusMergeRestartPredicate"
 }

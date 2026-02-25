@@ -15,10 +15,6 @@ func (p CustomerWorkloadRestartPredicate) Matches(pod v1.Pod) bool {
 	return pod.Namespace != "kyma-system" && pod.Labels["kyma-project.io/module"] == ""
 }
 
-func (p CustomerWorkloadRestartPredicate) MustMatch() bool {
-	return true
-}
-
 func (p CustomerWorkloadRestartPredicate) Name() string {
 	return "CustomerWorkloadRestartPredicate"
 }

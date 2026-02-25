@@ -8,7 +8,6 @@ import (
 
 type SidecarProxyPredicate interface {
 	Matches(v1.Pod) bool
-	MustMatch() bool
 	Name() string
 }
 

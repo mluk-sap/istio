@@ -28,10 +28,6 @@ func (p ImageResourcesPredicate) Matches(pod v1.Pod) bool {
 	return needsRestart(pod, p.expectedImage, *p.expectedResources.DeepCopy())
 }
 
-func (p ImageResourcesPredicate) MustMatch() bool {
-	return false
-}
-
 func (p ImageResourcesPredicate) Name() string {
 	return "ImageResourcesPredicate"
 }

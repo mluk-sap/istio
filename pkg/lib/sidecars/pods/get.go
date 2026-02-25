@@ -29,7 +29,7 @@ func NewPodsRestartLimits(restartLimit, listLimit int) *RestartLimits {
 }
 
 type Getter interface {
-	GetPodsToRestart(ctx context.Context, preds []predicates.SidecarProxyPredicate, limits *RestartLimits) (*v1.PodList, error)
+	GetPodsToRestart(ctx context.Context, filteringPred predicates.SidecarProxyPredicate, preds []predicates.SidecarProxyPredicate, limits *RestartLimits) (*v1.PodList, error)
 	GetAllInjectedPods(context context.Context) (*v1.PodList, error)
 }
 
@@ -46,7 +46,7 @@ func NewPods(k8sClient client.Client, logger *logr.Logger) *Pods {
 }
 
 //nolint:gocognit // cognitive complexity 29 of func `(*Pods).GetPodsToRestart` is high (> 20) TODO refactor
-func (p *Pods) GetPodsToRestart(ctx context.Context, preds []predicates.SidecarProxyPredicate, limits *RestartLimits) (*v1.PodList, error) {
+func (p *Pods) GetPodsToRestart(ctx context.Context, filteringPred predicates.SidecarProxyPredicate, preds []predicates.SidecarProxyPredicate, limits *RestartLimits) (*v1.PodList, error) {
 	podsToRestart := &v1.PodList{}
 	for while := true; while; {
 		podsWithSidecar, err := getSidecarPods(ctx, p.k8sClient, p.logger, limits.PodsToListLimit, podsToRestart.Continue)
@@ -54,23 +54,17 @@ func (p *Pods) GetPodsToRestart(ctx context.Context, preds []predicates.SidecarP
 			return nil, err
 		}
 		for _, pod := range podsWithSidecar.Items {
-			optionalMatched := false
-			requiredMatched := true
+			matched := filteringPred.Matches(pod)
+			if !matched {
+				continue
+			}
 			for _, predicate := range preds {
 				matched := predicate.Matches(pod)
-				if predicate.MustMatch() { // if predicate must match, all must match
-					p.logger.Info(fmt.Sprintf("Pod %s matches MustMatch predicate %s", pod.Name, predicate.Name()))
-					if !matched {
-						requiredMatched = false
-						break
-					}
-				} else if !optionalMatched && matched { // if predicate is optional, at least one must match
-					p.logger.Info(fmt.Sprintf("Pod %s matches not MustMatch predicate %s", pod.Name, predicate.Name()))
-					optionalMatched = true
+				if matched {
+					p.logger.Info(fmt.Sprintf("Pod %s matches predicate %s", pod.Name, predicate.Name()))
+					podsToRestart.Items = append(podsToRestart.Items, pod)
+					break
 				}
-			}
-			if requiredMatched && optionalMatched {
-				podsToRestart.Items = append(podsToRestart.Items, pod)
 			}
 			if len(podsToRestart.Items) >= limits.PodsToRestartLimit {
 				break

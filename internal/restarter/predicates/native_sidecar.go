@@ -28,6 +28,7 @@ func (p *NativeSidecarRestartPredicate) Matches(pod v1.Pod) bool {
 	}
 	if isPodWithNativeSidecar {
 		if p.compatibilityMode && pod.Annotations[nativeSidecarAnnotation] != "true" {
+
 			return true
 		}
 		if !p.compatibilityMode && pod.Annotations[nativeSidecarAnnotation] == "false" {
@@ -42,10 +43,6 @@ func (p *NativeSidecarRestartPredicate) Matches(pod v1.Pod) bool {
 		}
 	}
 
-	return false
-}
-
-func (p *NativeSidecarRestartPredicate) MustMatch() bool {
 	return false
 }
 
