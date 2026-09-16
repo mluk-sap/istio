@@ -248,6 +248,10 @@ spec:
             DO NOT EDIT - This resource is managed by Kyma.
             Any modifications are discarded and the resource is reverted to the original state.
   meshConfig:
+    tlsDefaults:
+      ecdhCurves:
+      - X25519MLKEM768
+      - X25519
     defaultConfig:
       holdApplicationUntilProxyStarts: true
       # TODO: remove in late July - workaround for Istio 1.29 breaking change

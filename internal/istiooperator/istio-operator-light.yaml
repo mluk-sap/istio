@@ -179,6 +179,10 @@ spec:
           - path: spec.template.metadata.labels.kyma-project\.io/module
             value: istio
   meshConfig:
+    tlsDefaults:
+      ecdhCurves:
+      - X25519MLKEM768
+      - X25519
     defaultConfig:
       holdApplicationUntilProxyStarts: true
       # TODO: remove in late July - workaround for Istio 1.29 breaking change
