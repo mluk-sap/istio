@@ -23,7 +23,7 @@ const (
 	SchemeAnnotation          = "service.beta.kubernetes.io/aws-load-balancer-scheme"
 	InternetFacingScheme      = "internet-facing"
 	IPAddressTypeAnnotation   = "service.beta.kubernetes.io/aws-load-balancer-ip-address-type"
-	IPAddressTypeDualStack    = "dual-stack"
+	IPAddressTypeDualStack    = "dualstack"
 
 	istioIngressNamespace   = "istio-system"
 	istioIngressServiceName = "istio-ingressgateway"
