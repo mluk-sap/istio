@@ -29,6 +29,6 @@ func NewFactory(in factory.Inputs) *Factory { return &Factory{inputs: in} }
 func (f *Factory) LB() factory.LB {
 	return LB{isGardener: f.inputs.UsesGardenOS}
 }
-func (f *Factory) CNI() factory.CNI         { return nil }
-func (f *Factory) NeedsProxyProtocol() bool { return true }
-func (f *Factory) DualStackEnabled() bool   { return f.inputs.DualStackEnabled }
+func (f *Factory) CNI() factory.CNI            { return nil }
+func (f *Factory) NeedsProxyProtocol() bool    { return true }
+func (f *Factory) DualStackFullyEnabled() bool { return f.inputs.DualStackFullyEnabled }

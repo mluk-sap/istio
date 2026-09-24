@@ -6,10 +6,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kyma-project/istio/operator/internal/clusterconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kyma-project/istio/operator/internal/clusterconfig"
 )
 
 func TestIsDualStackEnabled_AlphaOptIn(t *testing.T) {
@@ -48,7 +49,7 @@ func TestIsDualStackEnabled_AlphaOptIn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := createFakeClient(t, tt.objects...)
 
-			ds, err := clusterconfig.IsDualStackEnabled(context.Background(), c, tt.alphaOptIn)
+			ds, err := clusterconfig.IsDualStackFullyEnabled(context.Background(), c, tt.alphaOptIn)
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, ds)

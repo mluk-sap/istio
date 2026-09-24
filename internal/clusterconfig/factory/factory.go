@@ -9,15 +9,16 @@ type CNI interface {
 }
 
 type Inputs struct {
-	DualStackEnabled bool
-	UsesGardenOS     bool
+	DualStackFullyEnabled bool
+	DualStackLBEnabled    bool
+	UsesGardenOS          bool
 }
 
 type Factory interface {
 	LB() LB
 	CNI() CNI
 	NeedsProxyProtocol() bool
-	DualStackEnabled() bool
+	DualStackFullyEnabled() bool
 }
 
 type defaultFactory struct {
@@ -31,7 +32,7 @@ func DefaultFactory(in Inputs) Factory {
 	return &defaultFactory{inputs: in}
 }
 
-func (f *defaultFactory) LB() LB                   { return nil }
-func (f *defaultFactory) CNI() CNI                 { return nil }
-func (f *defaultFactory) NeedsProxyProtocol() bool { return false }
-func (f *defaultFactory) DualStackEnabled() bool   { return f.inputs.DualStackEnabled }
+func (f *defaultFactory) LB() LB                      { return nil }
+func (f *defaultFactory) CNI() CNI                    { return nil }
+func (f *defaultFactory) NeedsProxyProtocol() bool    { return false }
+func (f *defaultFactory) DualStackFullyEnabled() bool { return f.inputs.DualStackFullyEnabled }

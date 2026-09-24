@@ -3,10 +3,11 @@ package openstack_test
 import (
 	"testing"
 
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/openstack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/openstack"
 )
 
 func TestFactory_MakeLB(t *testing.T) {
@@ -62,6 +63,6 @@ func TestFactory_MakeCNI_AlwaysNil(t *testing.T) {
 }
 
 func TestFactory_DualStackEnabled(t *testing.T) {
-	assert.True(t, openstack.NewFactory(factory.Inputs{DualStackEnabled: true}).DualStackEnabled())
-	assert.False(t, openstack.NewFactory(factory.Inputs{DualStackEnabled: false}).DualStackEnabled())
+	assert.True(t, openstack.NewFactory(factory.Inputs{DualStackFullyEnabled: true}).DualStackFullyEnabled())
+	assert.False(t, openstack.NewFactory(factory.Inputs{DualStackFullyEnabled: false}).DualStackFullyEnabled())
 }

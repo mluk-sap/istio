@@ -3,10 +3,11 @@ package aws
 import (
 	"context"
 
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
 )
 
 const (
@@ -21,6 +22,8 @@ const (
 	NlbTargetTypeInstance     = "instance"
 	SchemeAnnotation          = "service.beta.kubernetes.io/aws-load-balancer-scheme"
 	InternetFacingScheme      = "internet-facing"
+	IPAddressTypeAnnotation   = "service.beta.kubernetes.io/aws-load-balancer-ip-address-type"
+	IPAddressTypeDualStack    = "dual-stack"
 
 	istioIngressNamespace   = "istio-system"
 	istioIngressServiceName = "istio-ingressgateway"
@@ -61,11 +64,13 @@ func (s *LB) Annotations() map[string]string {
 		// https://github.com/gardener/gardener-extension-provider-aws/blob/master/pkg/webhook/shootservice/mutator.go
 		// Switching IPv4 clusters to LB type=external is a potential follow up.
 		if s.stackType == DualStack {
+
 			return map[string]string{
 				LBTypeAnnotation:        ExternalType,
 				SchemeAnnotation:        InternetFacingScheme,
 				NlbTargetTypeAnnotation: NlbTargetTypeInstance,
 				ProxyProtocolAnnotation: ProxyProtocolValue,
+				IPAddressTypeAnnotation: IPAddressTypeDualStack,
 			}
 		}
 		// in-tree AWS CCM
@@ -106,7 +111,7 @@ func NewFactory(ctx context.Context, k8sClient client.Client, in factory.Inputs)
 		lb.lbType = ELB
 	}
 
-	if in.DualStackEnabled {
+	if in.DualStackFullyEnabled || in.DualStackLBEnabled {
 		lb.stackType = DualStack
 	} else {
 		lb.stackType = IPv4
@@ -135,7 +140,7 @@ func (f *Factory) NeedsProxyProtocol() bool {
 	}
 }
 
-func (f *Factory) DualStackEnabled() bool { return f.inputs.DualStackEnabled }
+func (f *Factory) DualStackFullyEnabled() bool { return f.inputs.DualStackFullyEnabled }
 
 func shouldUseNLB(ctx context.Context, k8sClient client.Client) (bool, error) {
 	var elbDeprecated corev1.ConfigMap

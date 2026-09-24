@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -13,6 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/aws"
 )
 
 func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
@@ -107,7 +108,7 @@ func TestFactory_MakeLB(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := newFakeClient(t, tt.objs...)
 
-			f, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackEnabled: tt.dualStackEnabled})
+			f, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackFullyEnabled: tt.dualStackEnabled})
 			require.NoError(t, err)
 			require.NotNil(t, f)
 
@@ -148,7 +149,7 @@ func TestFactory_MakeNeedsProxyProtocol(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := newFakeClient(t, tt.objs...)
-			f, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackEnabled: tt.dualStackEnabled})
+			f, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackFullyEnabled: tt.dualStackEnabled})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, f.NeedsProxyProtocol())
 		})
@@ -165,11 +166,11 @@ func TestFactory_MakeCNI_AlwaysNil(t *testing.T) {
 func TestFactory_DualStackEnabled(t *testing.T) {
 	c := newFakeClient(t)
 
-	f1, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackEnabled: true})
+	f1, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackFullyEnabled: true})
 	require.NoError(t, err)
-	assert.True(t, f1.DualStackEnabled())
+	assert.True(t, f1.DualStackFullyEnabled())
 
-	f2, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackEnabled: false})
+	f2, err := aws.NewFactory(context.Background(), c, factory.Inputs{DualStackFullyEnabled: false})
 	require.NoError(t, err)
-	assert.False(t, f2.DualStackEnabled())
+	assert.False(t, f2.DualStackFullyEnabled())
 }

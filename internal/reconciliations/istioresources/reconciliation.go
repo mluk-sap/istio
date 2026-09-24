@@ -98,7 +98,9 @@ func getResources(clusterStrategy factory.Factory, istioCR v1alpha2.Istio, featu
 	}
 
 	if clusterStrategy != nil {
-		shouldDeleteEnvoyFilter := !clusterStrategy.NeedsProxyProtocol()
+		needsProxyProtocol := clusterStrategy.NeedsProxyProtocol()
+		ctrl.Log.Info("Proxy protocol filter", "needs-proxy-protocol", needsProxyProtocol)
+		shouldDeleteEnvoyFilter := !needsProxyProtocol
 		istioResources = append(istioResources, NewProxyProtocolEnvoyFilter(shouldDeleteEnvoyFilter))
 	}
 

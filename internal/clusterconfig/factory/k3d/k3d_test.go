@@ -3,10 +3,11 @@ package k3d_test
 import (
 	"testing"
 
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/k3d"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/k3d"
 )
 
 func TestK3D_GetCNIValues(t *testing.T) {
@@ -26,8 +27,8 @@ func TestFactory(t *testing.T) {
 		inputs        factory.Inputs
 		wantDualStack bool
 	}{
-		{name: "dual stack off", inputs: factory.Inputs{DualStackEnabled: false}, wantDualStack: false},
-		{name: "dual stack on", inputs: factory.Inputs{DualStackEnabled: true}, wantDualStack: true},
+		{name: "dual stack off", inputs: factory.Inputs{DualStackFullyEnabled: false}, wantDualStack: false},
+		{name: "dual stack on", inputs: factory.Inputs{DualStackFullyEnabled: true}, wantDualStack: true},
 	}
 
 	for _, tt := range tests {
@@ -40,7 +41,7 @@ func TestFactory(t *testing.T) {
 			require.NotNil(t, cni)
 			assert.NotEmpty(t, cni.CNIValues())
 			assert.False(t, f.NeedsProxyProtocol())
-			assert.Equal(t, tt.wantDualStack, f.DualStackEnabled())
+			assert.Equal(t, tt.wantDualStack, f.DualStackFullyEnabled())
 		})
 	}
 }

@@ -67,11 +67,6 @@ func installIstio(ctx context.Context, args installArgs) (istiooperator.IstioIma
 		}
 	}
 
-	enableDualStack := clusterStrategy != nil && clusterStrategy.DualStackEnabled()
-	if enableDualStack {
-		ctrl.Log.Info("Istio is running with IPDualStack enabled")
-	}
-
 	clusterConfiguration := clusterconfig.ClusterConfigurationFromFactory(clusterStrategy)
 
 	clusterSize, err := clusterconfig.EvaluateClusterSize(context.Background(), k8sClient)
@@ -86,7 +81,9 @@ func installIstio(ctx context.Context, args installArgs) (istiooperator.IstioIma
 	ctrl.Log.Info("Running with Istio alpha features", "features", args.features)
 	options = append(options, operatorv1alpha2.WithFeatures(args.features))
 
+	enableDualStack := clusterStrategy != nil && clusterStrategy.DualStackFullyEnabled()
 	if enableDualStack {
+		ctrl.Log.Info("Istio is running with IPDualStack enabled")
 		options = append(options, operatorv1alpha2.WithDualStackEnabled())
 	}
 	mergedIstioOperatorPath, err := iopMerger.Merge(clusterSize, istioCR, clusterConfiguration, istioImages, options...)

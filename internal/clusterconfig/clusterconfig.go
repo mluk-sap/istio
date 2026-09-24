@@ -5,14 +5,15 @@ import (
 	"regexp"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
 	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/aws"
 	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/gke"
 	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/k3d"
 	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory/openstack"
 	"github.com/kyma-project/istio/operator/internal/istiofeatures"
-	"k8s.io/apimachinery/pkg/api/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/imdario/mergo"
 	corev1 "k8s.io/api/core/v1"
@@ -118,13 +119,18 @@ func BuildFactory(ctx context.Context, k8sClient client.Client, features istiofe
 	if err != nil {
 		return nil, err
 	}
+	ctrl.Log.Info("Uses GardenOS", "usesGardenOS", usesGardenOS)
 
-	dualStackEnabled, err := IsDualStackEnabled(ctx, k8sClient, features.EnableDualStack)
+	dualStackFullyEnabled, err := IsDualStackFullyEnabled(ctx, k8sClient, features.EnableDualStack)
 	if err != nil {
 		return nil, err
 	}
+	ctrl.Log.Info("Dual stack", "dualStackFullyEnabled", dualStackFullyEnabled)
 
-	in := factory.Inputs{DualStackEnabled: dualStackEnabled, UsesGardenOS: usesGardenOS}
+	dualStackLBEnabled := features.EnableLBDualStack
+	ctrl.Log.Info("Dual stack LB", "dualStackLBEnabled", dualStackLBEnabled)
+
+	in := factory.Inputs{DualStackFullyEnabled: dualStackFullyEnabled, DualStackLBEnabled: dualStackLBEnabled, UsesGardenOS: usesGardenOS}
 
 	switch provider {
 	case AWS:
@@ -242,10 +248,14 @@ func MergeOverrides(template []byte, overrides ClusterConfiguration) ([]byte, er
 	return yaml.Marshal(templateMap)
 }
 
-func IsDualStackEnabled(ctx context.Context, sClient client.Client, alphaOptIn bool) (bool, error) {
-	if !isExperimentalEnabled() && !alphaOptIn {
-		return false, nil
+func IsDualStackFullyEnabled(ctx context.Context, sClient client.Client, alphaOptIn bool) (bool, error) {
+	if isExperimentalEnabled() || alphaOptIn {
+		return IsDualStackInfraProvisioned(ctx, sClient)
 	}
+	return false, nil
+}
+
+func IsDualStackInfraProvisioned(ctx context.Context, sClient client.Client) (bool, error) {
 	var kymaProvisioningInfo corev1.ConfigMap
 	err := sClient.Get(ctx, client.ObjectKey{Namespace: "kyma-system", Name: "kyma-provisioning-info"}, &kymaProvisioningInfo)
 	if err != nil {

@@ -3,8 +3,9 @@ package factory_test
 import (
 	"testing"
 
-	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kyma-project/istio/operator/internal/clusterconfig/factory"
 )
 
 func TestDefaultFactory(t *testing.T) {
@@ -16,19 +17,19 @@ func TestDefaultFactory(t *testing.T) {
 	}{
 		{
 			name:           "dual stack disabled",
-			inputs:         factory.Inputs{DualStackEnabled: false, UsesGardenOS: false},
+			inputs:         factory.Inputs{DualStackFullyEnabled: false, UsesGardenOS: false},
 			wantDualStack:  false,
 			wantNeedsProxy: false,
 		},
 		{
 			name:           "dual stack enabled",
-			inputs:         factory.Inputs{DualStackEnabled: true, UsesGardenOS: false},
+			inputs:         factory.Inputs{DualStackFullyEnabled: true, UsesGardenOS: false},
 			wantDualStack:  true,
 			wantNeedsProxy: false,
 		},
 		{
 			name:           "garden OS does not affect default factory",
-			inputs:         factory.Inputs{DualStackEnabled: false, UsesGardenOS: true},
+			inputs:         factory.Inputs{DualStackFullyEnabled: false, UsesGardenOS: true},
 			wantDualStack:  false,
 			wantNeedsProxy: false,
 		},
@@ -41,7 +42,7 @@ func TestDefaultFactory(t *testing.T) {
 			assert.Nil(t, f.LB())
 			assert.Nil(t, f.CNI())
 			assert.Equal(t, tt.wantNeedsProxy, f.NeedsProxyProtocol())
-			assert.Equal(t, tt.wantDualStack, f.DualStackEnabled())
+			assert.Equal(t, tt.wantDualStack, f.DualStackFullyEnabled())
 		})
 	}
 }
