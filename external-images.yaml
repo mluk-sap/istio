@@ -5,3 +5,4 @@ images:
   - source: "istio/ztunnel:1.31.3-distroless"
   - source: "kennethreitz/httpbin:latest"
     amd64Only: true
+  - source: "alpine:latest"
