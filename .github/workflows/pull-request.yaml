@@ -20,8 +20,10 @@ jobs:
     name: Detect scope
     runs-on: ubuntu-latest
     outputs:
+      has-docs: ${{ steps.check.outputs.has-docs }}
       has-images: ${{ steps.check.outputs.has-images }}
       has-code: ${{ steps.check.outputs.has-code }}
+      has-pipeline: ${{ steps.check.outputs.has-pipeline }}
     steps:
       - id: check
         env:
@@ -30,19 +32,35 @@ jobs:
         run: |
           changed="$(gh pr diff --name-only "${PR_NUMBER}" --repo "${{ github.repository }}")"
 
+          if echo "${changed}" | grep -qE '\.(md|txt)$'; then
+            echo "has-docs=true" >> "${GITHUB_OUTPUT}"
+          fi
+
           if echo "${changed}" | grep -qE '^(external-images|fips-images)\.yaml$'; then
             echo "has-images=true" >> "${GITHUB_OUTPUT}"
           fi
 
-          if echo "${changed}" | grep -vE '(^(external-images|fips-images)\.yaml$|\.(md|txt)$)' | grep -q .; then
+          if echo "${changed}" | grep -qE '^(api|cmd|config|docker|Dockerfile|go\.mod|go\.sum|internal|pkg|tests|component-config\.yaml|crd-ref-docs)(/|$)'; then
             echo "has-code=true" >> "${GITHUB_OUTPUT}"
           fi
+
+          if echo "${changed}" | grep -qE '^(hack|\.github|MINOR_VERSION|Makefile)(/|$)'; then
+            echo "has-pipeline=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+  check-docs:
+    name: Check docs
+    runs-on: ubuntu-latest
+    needs: [ detect-scope ]
+    if: needs.detect-scope.outputs.has-docs == 'true' || needs.detect-scope.outputs.has-pipeline == 'true'
+    steps:
+      - run: echo "Documentation files changed; no tests required."
 
   check-images:
     name: Check images
     runs-on: ubuntu-latest
     needs: [ detect-scope ]
-    if: needs.detect-scope.outputs.has-images == 'true'
+    if: needs.detect-scope.outputs.has-images == 'true' || needs.detect-scope.outputs.has-pipeline == 'true'
     steps:
       - uses: actions/checkout@v7
       - name: Check images exist on Docker Hub
@@ -69,7 +87,7 @@ jobs:
     name: Build manager image
     runs-on: ubuntu-latest
     needs: [ detect-scope ]
-    if: needs.detect-scope.outputs.has-code == 'true'
+    if: needs.detect-scope.outputs.has-code == 'true' || needs.detect-scope.outputs.has-pipeline == 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/build-manager-image
@@ -230,6 +248,7 @@ jobs:
   pull-request-status:
     needs:
       - detect-scope
+      - check-docs
       - check-images
       - build-image
       - unit-tests
