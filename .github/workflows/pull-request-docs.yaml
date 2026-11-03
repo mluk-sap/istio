@@ -1,0 +1,60 @@
+name: Pull Request Docs
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [ synchronize, opened, reopened, ready_for_review ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.check.outputs.relevant }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          changed="$(gh pr diff --name-only "${PR_NUMBER}" --repo "${{ github.repository }}")"
+          if echo "${changed}" | grep -qE '\.(md|txt)$'; then
+            echo "Detected documentation changes"
+            echo "relevant=true" >> "${GITHUB_OUTPUT}"
+          fi
+          if echo "${changed}" | grep -qE '^(hack|\.github)/|^(MINOR_VERSION|Makefile)$'; then
+            echo "Detected pipeline changes"
+            echo "relevant=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+  check-docs:
+    name: Check docs
+    runs-on: ubuntu-latest
+    needs: [ detect-changes ]
+    if: needs.detect-changes.outputs.relevant == 'true'
+    steps:
+      - run: echo "Documentation files changed; no tests required."
+
+  verify-pins:
+    name: Dispatch verify-commit-pins
+    uses: ./.github/workflows/call-verify-commit-pins.yaml
+    secrets: inherit
+
+  pull-request-docs-status:
+    needs:
+      - detect-changes
+      - check-docs
+      - verify-pins
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - if: ${{ !(contains(needs.*.result, 'failure')) }}
+        run: exit 0
+      - if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
