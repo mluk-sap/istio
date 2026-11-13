@@ -456,7 +456,7 @@ jobs:
           payload: |
             repository: ${{ github.repository }}
             release: "${{ inputs.version }}"
-            status: "${{ job.status }}"
+            status: "${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'skipped') && !contains(needs.*.result, 'cancelled') && 'success' || 'failure' }}"
             actor: "${{ github.actor }}"
             email: "${{ steps.get-actor-email.outputs.email }}"
             link: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
