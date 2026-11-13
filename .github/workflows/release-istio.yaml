@@ -449,9 +449,9 @@ jobs:
           webhook-type: webhook-trigger
           payload-templated: true
           payload: |
-            repository: ${{ github.repository }},
-            release: "${{ inputs.version }}",
-            status: "${{ job.status }}",
-            actor: "${{ github.actor }}",
-            email: "${{ steps.get-actor-email.outputs.email }}",
+            repository: ${{ github.repository }}
+            release: "${{ inputs.version }}"
+            status: "${{ job.status }}"
+            actor: "${{ github.actor }}"
+            email: "${{ steps.get-actor-email.outputs.email }}"
             link: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
