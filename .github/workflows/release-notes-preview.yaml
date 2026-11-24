@@ -1,0 +1,33 @@
+name: Release Notes Preview
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-**'
+  pull_request:
+    branches:
+      - main
+      - 'release-**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  release-notes-preview:
+    name: Release notes for upcoming ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Print upcoming release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          "${{ github.workspace }}/hack/ci/assemble-release-notes.sh"
