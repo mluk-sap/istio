@@ -32,4 +32,6 @@ jobs:
         run: |
           since_tag=$("${{ github.workspace }}/hack/ci/get-previous-release-tag.sh")
           echo "Previewing changes since ${since_tag}"
-          "${{ github.workspace }}/hack/ci/assemble-release-notes.sh" "${since_tag}"
+          release_notes_file=$(mktemp)
+          "${{ github.workspace }}/hack/ci/assemble-release-notes.sh" "${since_tag}" "${release_notes_file}"
+          cat "${release_notes_file}"
