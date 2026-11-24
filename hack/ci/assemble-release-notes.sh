@@ -1,48 +1,41 @@
 #!/usr/bin/env bash
 
-# Assemble release notes by walking git log since the last release tag on the
-# current branch and extracting ```release-note blocks from merged PR descriptions.
+# Assemble release notes by walking git log since the given tag and extracting
+# ```release-note blocks from merged PR descriptions.
 #
 # Usage:
-#   assemble-release-notes.sh [--since <tag>] [--output <file>]
+#   assemble-release-notes.sh <since_tag> [--output <file>]
 #
-# --since   override the auto-detected last release tag
-# --output  write to file instead of stdout
+# <since_tag>  the tag to start from (exclusive)
+# --output     write to file instead of stdout
 #
-# Requires: gh, git, GITHUB_TOKEN in env.
+# Requires: gh, git, jq, GITHUB_TOKEN in env.
 
 set -eo pipefail
 script_dir="$(dirname "$(readlink -f "$0")")"
 # shellcheck source=./common.sh
 source "${script_dir}/common.sh"
 
+require_positional since_tag "$1"
+shift
+
 require_vars GITHUB_TOKEN
 require_tools gh git jq
 
-since_tag=""
 output_file=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --since)  since_tag="$2";  shift 2 ;;
     --output) output_file="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
-# Read MINOR_VERSION once — used for tag scoping and the output header.
+# Read MINOR_VERSION — used for the output header.
 root="${script_dir}/../.."
 minor_version=""
 if [ -f "${root}/MINOR_VERSION" ]; then
   minor_version="$(cat "${root}/MINOR_VERSION")"
-fi
-
-# Auto-detect the last release tag when not overridden.
-if [ -z "${since_tag}" ]; then
-  since_tag=$("${script_dir}/get-last-release-tag.sh" ${minor_version:+"${minor_version}"} 2>/dev/null) || {
-    echo "No release tag found — cannot assemble release notes. Push a tag or pass --since <tag>." >&2
-    exit 0
-  }
 fi
 
 echo "Assembling release notes since ${since_tag}..." >&2
