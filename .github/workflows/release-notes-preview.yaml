@@ -6,6 +6,15 @@ on:
       - main
       - 'release-**'
   workflow_dispatch:
+    inputs:
+      since:
+        description: 'Tag or commit to start from (exclusive). Defaults to auto-detected previous release tag.'
+        required: false
+        default: ''
+      until:
+        description: 'Tag or commit to end at (inclusive). Defaults to HEAD.'
+        required: false
+        default: 'HEAD'
 
 permissions:
   contents: read
@@ -16,7 +25,7 @@ concurrency:
 
 jobs:
   release-notes-preview:
-    name: Release notes for upcoming ${{ github.ref_name }}
+    name: Release notes for version released from ${{ github.ref_name }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -26,8 +35,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          since_tag=$("${{ github.workspace }}/hack/ci/get-previous-release-tag.sh")
-          echo "Previewing changes since ${since_tag}"
+          since="${{ inputs.since }}"
+          until="${{ inputs.until || 'HEAD' }}"
+          if [ -z "${since}" ]; then
+            since=$("${{ github.workspace }}/hack/ci/get-previous-release-tag.sh")
+          fi
           release_notes_file=$(mktemp)
-          "${{ github.workspace }}/hack/ci/assemble-release-notes.sh" "${since_tag}" "${release_notes_file}"
+          "${{ github.workspace }}/hack/ci/assemble-release-notes.sh" "${release_notes_file}" "${since}" "${until}"
+          echo "Release notes since ${since} until ${until}:"
+          echo "---"
           cat "${release_notes_file}"
