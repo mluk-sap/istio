@@ -50,10 +50,12 @@ else
   previous=""
   while [ "${minor}" -ge 0 ]; do
     previous=$(echo "${all_tags}" | grep -E "^${major}\.${minor}\." | tail -1)
-    [ -n "${previous}" ] && break
+    if [ -n "${previous}" ]; then
+      break
+    fi
     minor=$(( minor - 1 ))
   done
 fi
 
-[ -n "${previous}" ] || { echo "No previous release tag found" >&2; exit 1; }
+[ -n "${previous}" ] || { echo "No previous release tag found (MINOR_VERSION=${minor_version:-}, searched back from ${major}.${minor_version##*.})" >&2; exit 1; }
 echo "${previous}"
