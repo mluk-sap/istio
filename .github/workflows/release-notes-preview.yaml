@@ -30,11 +30,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          minor_version=$(cat "${{ github.workspace }}/MINOR_VERSION")
-          since_tag=$(git tag --list | grep -E "^${minor_version//./\\.}\.[0-9]+$" | sort -V | tail -1)
-          if [ -z "${since_tag}" ]; then
-            echo "No tag found for minor ${minor_version}, cannot preview release notes" >&2
-            exit 1
-          fi
+          since_tag=$("${{ github.workspace }}/hack/ci/get-previous-release-tag.sh")
           echo "Previewing changes since ${since_tag}"
           "${{ github.workspace }}/hack/ci/assemble-release-notes.sh" "${since_tag}"
