@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-# Creates a draft GitHub release and writes the release ID to a file
+# Creates a draft GitHub release and writes the release ID to a file.
+# Release notes are assembled on-the-fly from merged PR descriptions.
+#
+# Usage: create-draft-release.sh <release_tag> <release_id_output_file>
 
 set -eo pipefail
 script_dir="$(dirname "$(readlink -f "$0")")"
@@ -8,32 +11,32 @@ script_dir="$(dirname "$(readlink -f "$0")")"
 source "${script_dir}/common.sh"
 
 require_positional release_tag "$1"
-require_positional release_notes_path "$2"
-require_positional changelog_file_path "$3"
-require_positional release_id_output_file "$4"
+require_positional release_id_output_file "$2"
 require_vars GITHUB_TOKEN
+require_tools gh git jq curl envsubst
 
 REPOSITORY=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 github_api_repo_url="https://api.github.com/repos/${REPOSITORY}"
 
-echo "Create draft release: repository: ${REPOSITORY}, release notes path: ${release_notes_path}, changelog path: ${changelog_file_path}, output file: ${release_id_output_file}"
+echo "Create draft release: repository: ${REPOSITORY}, tag: ${release_tag}, output file: ${release_id_output_file}"
 
-echo "Preparing release payload"
-istio_version=$("${script_dir}/../get-module-istio-version.sh")
-envoy_version=$("${script_dir}/../get-module-envoy-version.sh" "${istio_version}")
-release_notes=$(cat "${release_notes_path}")
-changelog=$(cat "${changelog_file_path}")
+echo "Assembling release notes from PR descriptions"
+export RELEASE_NOTES
+RELEASE_NOTES=$("${script_dir}/assemble-release-notes.sh")
 
-body=$(cat <<EOF
-${release_notes}
+echo "Resolving component versions"
+export ISTIO_VERSION ENVOY_VERSION
+ISTIO_VERSION=$("${script_dir}/../get-module-istio-version.sh")
+ENVOY_VERSION=$("${script_dir}/../get-module-envoy-version.sh" "${ISTIO_VERSION}")
 
-## Versions
-- Istio: ${istio_version}
-- Envoy: ${envoy_version}
+echo "Computing changelog URL"
+export CHANGELOG_URL
+previous_tag=$("${script_dir}/get-previous-release-tag.sh" "${release_tag}")
+CHANGELOG_URL="https://github.com/${REPOSITORY}/compare/${previous_tag}...${release_tag}"
 
-${changelog}
-EOF
-)
+echo "Rendering release body"
+body=$(envsubst '$RELEASE_NOTES $ISTIO_VERSION $ENVOY_VERSION $CHANGELOG_URL' \
+  < "${script_dir}/release-body.md.tmpl")
 
 json_payload=$(jq -n \
   --arg tag_name "${release_tag}" \
