@@ -4,10 +4,11 @@
 # ```release-note blocks from merged PR descriptions.
 #
 # Usage:
-#   assemble-release-notes.sh <since_tag> <output_file>
+#   assemble-release-notes.sh <output_file> <since_tag> <until>
 #
-# <since_tag>   the tag to start from (exclusive)
 # <output_file> file to write the release notes to
+# <since_tag>   the tag to start from (exclusive)
+# <until>       commit/tag to end at (inclusive), use HEAD for latest
 #
 # Requires: gh, git, jq, GITHUB_TOKEN in env.
 
@@ -16,8 +17,9 @@ script_dir="$(dirname "$(readlink -f "$0")")"
 # shellcheck source=./common.sh
 source "${script_dir}/common.sh"
 
-require_positional since_tag "$1"
-require_positional output_file "$2"
+require_positional output_file "$1"
+require_positional since_tag "$2"
+require_positional until_ref "$3"
 
 require_vars GITHUB_TOKEN
 require_tools gh git jq
@@ -123,7 +125,7 @@ while IFS= read -r log_line; do
     echo "  Skipping: no release-note block and no auto-generate label"
   fi
 
-done < <(git log --oneline "${since_tag}..HEAD")
+done < <(git log --oneline "${since_tag}..${until_ref}")
 
 # If no section has content, fall back to a generic dependency update notice.
 if [ "${any_release_notes}" -eq 0 ]; then

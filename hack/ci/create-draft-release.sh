@@ -33,7 +33,7 @@ CHANGELOG_URL="https://github.com/${REPOSITORY}/compare/${previous_tag}...${rele
 
 echo "Assembling release notes from PR descriptions"
 release_notes_file=$(mktemp)
-"${script_dir}/assemble-release-notes.sh" "${previous_tag}" "${release_notes_file}"
+"${script_dir}/assemble-release-notes.sh" "${release_notes_file}" "${previous_tag}" "${release_tag}"
 export RELEASE_NOTES
 RELEASE_NOTES=$(cat "${release_notes_file}")
 
