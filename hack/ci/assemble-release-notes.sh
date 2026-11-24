@@ -56,10 +56,10 @@ format_bullet() {
   local first=1
   while IFS= read -r line; do
     if [ "${first}" -eq 1 ]; then
-      printf '- %s\n' "${line}"
+      echo "- ${line}"
       first=0
     else
-      printf '  %s\n' "${line}"
+      echo "  ${line}"
     fi
   done <<< "$1"
 }
