@@ -20,10 +20,6 @@ github_api_repo_url="https://api.github.com/repos/${REPOSITORY}"
 
 echo "Create draft release: repository: ${REPOSITORY}, tag: ${release_tag}, output file: ${release_id_output_file}"
 
-echo "Assembling release notes from PR descriptions"
-export RELEASE_NOTES
-RELEASE_NOTES=$("${script_dir}/assemble-release-notes.sh")
-
 echo "Resolving component versions"
 export ISTIO_VERSION ENVOY_VERSION
 ISTIO_VERSION=$("${script_dir}/../get-module-istio-version.sh")
@@ -32,7 +28,12 @@ ENVOY_VERSION=$("${script_dir}/../get-module-envoy-version.sh" "${ISTIO_VERSION}
 echo "Computing changelog URL"
 export CHANGELOG_URL
 previous_tag=$("${script_dir}/get-previous-release-tag.sh" "${release_tag}")
+echo "Previous tag: ${previous_tag}"
 CHANGELOG_URL="https://github.com/${REPOSITORY}/compare/${previous_tag}...${release_tag}"
+
+echo "Assembling release notes from PR descriptions"
+export RELEASE_NOTES
+RELEASE_NOTES=$("${script_dir}/assemble-release-notes.sh" --since "${previous_tag}")
 
 echo "Rendering release body"
 body=$(envsubst '$RELEASE_NOTES $ISTIO_VERSION $ENVOY_VERSION $CHANGELOG_URL' \

@@ -24,7 +24,7 @@ jobs:
           block=$(echo "${PR_BODY}" | awk '/^```release-note/{found=1; next} found && /^```/{exit} found{print}' | sed '/^[[:space:]]*$/d')
           if [ -n "${block}" ]; then
             echo "Release note block found, requesting Technical Writers review"
-            gh pr edit "${PR_NUMBER}" --add-reviewer kyma-project/technical-writers
+            gh pr edit "${PR_NUMBER}" --add-reviewer kyma-project/technical-writers --repo "${{ github.repository }}"
           else
             echo "No release note block, skipping TW review request"
           fi
