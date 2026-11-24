@@ -69,7 +69,7 @@ format_bullet() {
 # Extract text between ```release-note and ``` fences.
 # Outputs trimmed block content, or empty string if absent/empty.
 extract_release_note_block() {
-  echo "$1" | awk '/^```release-note/{found=1; next} found && /^```/{exit} found{print}' \
+  echo "$1" | tr -d '\r' | awk '/^```release-note/{found=1; next} found && /^```/{exit} found{print}' \
     | sed '/^[[:space:]]*$/d'
 }
 
@@ -97,7 +97,7 @@ while IFS= read -r log_line; do
   pr_labels=$(echo "${pr_json}" | jq -r '[.labels[].name] | join(",")')
 
   block="$(extract_release_note_block "${pr_body}")"
-  pr_link="(#${pr_number}) [#${pr_number}](https://github.com/${repository}/pull/${pr_number})"
+  pr_link="See [#${pr_number}](https://github.com/${repository}/pull/${pr_number})"
   note_line="$(format_bullet "${pr_title}") ${pr_link}"
 
   if [ -n "${block}" ]; then
@@ -136,7 +136,7 @@ fi
 output=""
 for key in "${section_order[@]}"; do
   if [ -n "${sections[${key}]}" ]; then
-    output+=$(printf '\n## %s\n%s\n' "${section_titles[${key}]}" "${sections[${key}]}")
+    output+=$(printf '\n## %s\n\n%s\n' "${section_titles[${key}]}" "${sections[${key}]}")
   fi
 done
 
