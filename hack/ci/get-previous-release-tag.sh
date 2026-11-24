@@ -8,7 +8,7 @@
 #
 # With <release_tag>: finds the highest tag strictly before <release_tag>.
 #   patch (X.Y.Z, Z>0): highest X.Y.* tag, excluding <release_tag> itself so the
-#     script is idempotent when the tag already exists (e.g. on workflow retry).
+#     script is idempotent — re-running after the tag already exists returns the same result.
 #   minor (X.Y.0, Y>0): highest X.(Y-1).* tag.
 #   major (X.0.0):      highest (X-1).*.* tag.
 #
@@ -24,32 +24,55 @@ source "${script_dir}/common.sh"
 require_tools git
 
 all_tags=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
+echo "Found $(echo "${all_tags}" | grep -c . || true) release tag(s) in total" >&2
+
+find_latest_tag_for_minor() {
+  local major="$1" minor="$2"
+  local matches tag
+  echo "Looking for latest ${major}.${minor}.* tag..." >&2
+  matches=$(echo "${all_tags}" | grep -E "^${major}\.${minor}\.[0-9]+$" || true)
+  tag=$(echo "${matches}" | sort -V | tail -1)
+  echo "${tag}"
+}
+
+find_latest_tag_for_major() {
+  local major="$1"
+  local matches tag
+  echo "Looking for latest ${major}.*.* tag..." >&2
+  matches=$(echo "${all_tags}" | grep -E "^${major}\." || true)
+  tag=$(echo "${matches}" | sort -V | tail -1)
+  echo "${tag}"
+}
 
 if [ -n "${1:-}" ]; then
   release_tag="$1"
   major=$(echo "${release_tag}" | cut -d. -f1)
   minor=$(echo "${release_tag}" | cut -d. -f2)
   patch=$(echo "${release_tag}" | cut -d. -f3)
+  echo "Finding previous tag for ${release_tag}..." >&2
 
   if [ "${patch}" -ne 0 ]; then
-    previous=$(echo "${all_tags}" | grep -E "^${major}\.${minor}\." | grep -v "^${release_tag}$" | tail -1)
+    # Exclude release_tag itself: if the tag was already created before this script
+    # runs (e.g. on workflow retry), we must not return it as its own previous tag.
+    all_tags=$(echo "${all_tags}" | grep -v "^${release_tag}$" || true)
+    previous=$(find_latest_tag_for_minor "${major}" "${minor}")
   elif [ "${minor}" -ne 0 ]; then
     prev_minor=$((minor - 1))
-    previous=$(echo "${all_tags}" | grep -E "^${major}\.${prev_minor}\." | tail -1)
+    previous=$(find_latest_tag_for_minor "${major}" "${prev_minor}")
   else
     prev_major=$((major - 1))
-    previous=$(echo "${all_tags}" | grep -E "^${prev_major}\." | tail -1)
+    previous=$(find_latest_tag_for_major "${prev_major}")
   fi
 else
   root="${script_dir}/../.."
   minor_version="$(cat "${root}/MINOR_VERSION")"
   major="${minor_version%%.*}"
   minor="${minor_version##*.}"
+  echo "No release tag given — reading MINOR_VERSION (${minor_version}), walking backwards from ${major}.${minor}..." >&2
 
-  echo "No release tag given — reading MINOR_VERSION (${minor_version}), walking backwards..." >&2
   previous=""
   while [ "${minor}" -ge 0 ]; do
-    previous=$(echo "${all_tags}" | grep -E "^${major}\.${minor}\." | tail -1)
+    previous=$(find_latest_tag_for_minor "${major}" "${minor}")
     if [ -n "${previous}" ]; then
       break
     fi
@@ -57,5 +80,10 @@ else
   done
 fi
 
-[ -n "${previous}" ] || { echo "No previous release tag found (MINOR_VERSION=${minor_version:-}, searched back from ${major}.${minor_version##*.})" >&2; exit 1; }
+if [ -z "${previous}" ]; then
+  echo "ERROR: No previous release tag found" >&2
+  exit 1
+fi
+
+echo "Previous release tag: ${previous}" >&2
 echo "${previous}"
