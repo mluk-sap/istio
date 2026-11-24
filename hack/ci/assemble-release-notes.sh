@@ -16,7 +16,7 @@ script_dir="$(dirname "$(readlink -f "$0")")"
 # shellcheck source=./common.sh
 source "${script_dir}/common.sh"
 
-#require_vars GITHUB_TOKEN
+require_vars GITHUB_TOKEN
 require_tools gh git jq
 
 since_tag=""
@@ -39,7 +39,10 @@ fi
 
 # Auto-detect the last release tag when not overridden.
 if [ -z "${since_tag}" ]; then
-  since_tag=$("${script_dir}/get-last-release-tag.sh" ${minor_version:+"${minor_version}"})
+  since_tag=$("${script_dir}/get-last-release-tag.sh" ${minor_version:+"${minor_version}"} 2>/dev/null) || {
+    echo "No release tag found — cannot assemble release notes. Push a tag or pass --since <tag>." >&2
+    exit 0
+  }
 fi
 
 echo "Assembling release notes since ${since_tag}..." >&2
