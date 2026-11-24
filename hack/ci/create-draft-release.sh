@@ -32,8 +32,10 @@ echo "Previous tag: ${previous_tag}"
 CHANGELOG_URL="https://github.com/${REPOSITORY}/compare/${previous_tag}...${release_tag}"
 
 echo "Assembling release notes from PR descriptions"
+release_notes_file=$(mktemp)
+"${script_dir}/assemble-release-notes.sh" "${previous_tag}" "${release_notes_file}"
 export RELEASE_NOTES
-RELEASE_NOTES=$("${script_dir}/assemble-release-notes.sh" --since "${previous_tag}")
+RELEASE_NOTES=$(cat "${release_notes_file}")
 
 echo "Rendering release body"
 body=$(envsubst '$RELEASE_NOTES $ISTIO_VERSION $ENVOY_VERSION $CHANGELOG_URL' \

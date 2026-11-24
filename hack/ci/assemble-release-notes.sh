@@ -4,10 +4,10 @@
 # ```release-note blocks from merged PR descriptions.
 #
 # Usage:
-#   assemble-release-notes.sh <since_tag> [--output <file>]
+#   assemble-release-notes.sh <since_tag> <output_file>
 #
-# <since_tag>  the tag to start from (exclusive)
-# --output     write to file instead of stdout
+# <since_tag>   the tag to start from (exclusive)
+# <output_file> file to write the release notes to
 #
 # Requires: gh, git, jq, GITHUB_TOKEN in env.
 
@@ -17,46 +17,51 @@ script_dir="$(dirname "$(readlink -f "$0")")"
 source "${script_dir}/common.sh"
 
 require_positional since_tag "$1"
-shift
+require_positional output_file "$2"
 
 require_vars GITHUB_TOKEN
 require_tools gh git jq
 
-output_file=""
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --output) output_file="$2"; shift 2 ;;
-    *) echo "Unknown argument: $1" >&2; exit 1 ;;
-  esac
-done
-
-# Read MINOR_VERSION — used for the output header.
-root="${script_dir}/../.."
-minor_version=""
-if [ -f "${root}/MINOR_VERSION" ]; then
-  minor_version="$(cat "${root}/MINOR_VERSION")"
-fi
-
-echo "Assembling release notes since ${since_tag}..." >&2
+echo "Assembling release notes since ${since_tag}..."
+repository=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+echo "Repository: ${repository}"
 
 # Sections accumulate bullet lines.
+# section_order defines display order; section_titles maps key -> heading.
+section_order=("features" "bug_fixes" "istio_upgrades" "dependency_updates")
+declare -A section_titles
+section_titles["features"]="New Features"
+section_titles["bug_fixes"]="Bug Fixes"
+section_titles["istio_upgrades"]="Istio Updates"
+section_titles["dependency_updates"]="Dependency Updates"
 declare -A sections
-sections["features"]=""
-sections["other_changes"]=""
-sections["bug_fixes"]=""
-sections["istio_upgrades"]=""
-sections["security_updates"]=""
-sections["dependency_updates"]=""
+for key in "${section_order[@]}"; do sections["${key}"]=""; done
+
+any_release_notes=0
 
 append_to_section() {
   local key="$1" line="$2"
+  any_release_notes=1
   if [ -n "${sections[${key}]}" ]; then
     sections["${key}"]="${sections[${key}]}
 ${line}"
   else
     sections["${key}"]="${line}"
   fi
+}
+
+# Formats a multi-line block as a markdown bullet: first line prefixed with "- ",
+# subsequent lines indented with two spaces.
+format_bullet() {
+  local first=1
+  while IFS= read -r line; do
+    if [ "${first}" -eq 1 ]; then
+      printf '- %s\n' "${line}"
+      first=0
+    else
+      printf '  %s\n' "${line}"
+    fi
+  done <<< "$1"
 }
 
 # Extract text between ```release-note and ``` fences.
@@ -79,10 +84,9 @@ while IFS= read -r log_line; do
   [ -z "${seen_prs[${pr_number}]+x}" ] || continue
   seen_prs["${pr_number}"]=1
 
-  echo "Analyzing commit: ${log_line}" >&2
-
+  echo "Analyzing commit: ${log_line}"
   pr_json=$(gh pr view "${pr_number}" --json title,body,labels 2>/dev/null) || {
-    echo "  -> Warning: could not fetch PR #${pr_number}, skipping" >&2
+    echo "  Warning: could not fetch PR #${pr_number}, skipping"
     continue
   }
 
@@ -91,110 +95,48 @@ while IFS= read -r log_line; do
   pr_labels=$(echo "${pr_json}" | jq -r '[.labels[].name] | join(",")')
 
   block="$(extract_release_note_block "${pr_body}")"
-  note_line="- ${pr_title} (#${pr_number})"
+  pr_link="(#${pr_number}) [#${pr_number}](https://github.com/${repository}/pull/${pr_number})"
+  note_line="$(format_bullet "${pr_title}") ${pr_link}"
 
   if [ -n "${block}" ]; then
-    note_line="- $(echo "${block}" | head -1)"
-    rest="$(echo "${block}" | tail -n +2)"
-    if [ -n "${rest}" ]; then
-      note_line="${note_line}
-$(echo "${rest}" | sed 's/^/  /')"
-    fi
-    note_line="${note_line} (#${pr_number})"
+    note_line="$(format_bullet "${block}") ${pr_link}"
 
     if echo "${pr_labels}" | grep -qE "(^|,)kind/bug(,|$)"; then
       append_to_section "bug_fixes" "${note_line}"
-      echo "  -> Taking explicit release note, routing to Bug Fixes" >&2
+      echo "  Routing to Bug Fixes"
     elif echo "${pr_labels}" | grep -qE "(^|,)kind/istio-upgrade(,|$)"; then
       append_to_section "istio_upgrades" "${note_line}"
-      echo "  -> Taking explicit release note, routing to Upstream Updates" >&2
+      echo "  Routing to Istio Updates"
     elif echo "${pr_labels}" | grep -qE "(^|,)kind/feature(,|$)"; then
       append_to_section "features" "${note_line}"
-      echo "  -> Taking explicit release note, routing to New Features" >&2
+      echo "  Routing to New Features"
     else
-      append_to_section "other_changes" "${note_line}"
-      echo "  -> Taking explicit release note, routing to Other Changes" >&2
+      echo "  Skipping: explicit release note but no matching label (kind/bug, kind/feature, kind/istio-upgrade)"
     fi
   elif echo "${pr_labels}" | grep -qE "(^|,)kind/istio-upgrade(,|$)"; then
     append_to_section "istio_upgrades" "${note_line}"
-    echo "  -> Generating release note from PR title, routing to Upstream Updates" >&2
+    echo "  Routing to Istio Updates (auto-generated from label)"
   elif echo "${pr_labels}" | grep -qE "(^|,)dependencies(,|$)"; then
-    if echo "${pr_labels}" | grep -qE "(^|,)security(,|$)"; then
-      append_to_section "security_updates" "${note_line}"
-      echo "  -> Generating release note from PR title, routing to Security Updates" >&2
-    else
-      append_to_section "dependency_updates" "${note_line}"
-      echo "  -> Generating release note from PR title, routing to Dependency Updates" >&2
-    fi
+    append_to_section "dependency_updates" "${note_line}"
+    echo "  Routing to Dependency Updates (auto-generated from label)"
   else
-    echo "  -> Skipping: no release-note block and no auto-generate label" >&2
+    echo "  Skipping: no release-note block and no auto-generate label"
   fi
 
 done < <(git log --oneline "${since_tag}..HEAD")
 
-# Determine upcoming version label for the header.
-if [ -n "${minor_version}" ]; then
-  version_label="${minor_version}"
-else
-  branch="$(git rev-parse --abbrev-ref HEAD)"
-  version_label="${branch}"
+# If no section has content, fall back to a generic dependency update notice.
+if [ "${any_release_notes}" -eq 0 ]; then
+  echo "No explicit release notes found — using generic fallback"
+  sections["dependency_updates"]="This version includes dependency updates and security patches."
 fi
 
 output=""
-output+="# Release notes for upcoming ${version_label}
-"
+for key in "${section_order[@]}"; do
+  if [ -n "${sections[${key}]}" ]; then
+    output+=$(printf '\n## %s\n%s\n' "${section_titles[${key}]}" "${sections[${key}]}")
+  fi
+done
 
-if [ -n "${sections[features]}" ]; then
-  output+="
-## New Features
-${sections[features]}
-"
-fi
-
-if [ -n "${sections[other_changes]}" ]; then
-  output+="
-## Other Changes
-${sections[other_changes]}
-"
-fi
-
-if [ -n "${sections[bug_fixes]}" ]; then
-  output+="
-## Bug Fixes
-${sections[bug_fixes]}
-"
-fi
-
-if [ -n "${sections[istio_upgrades]}" ]; then
-  output+="
-## Upstream Updates
-${sections[istio_upgrades]}
-"
-fi
-
-if [ -n "${sections[security_updates]}" ]; then
-  output+="
-## Security Updates
-${sections[security_updates]}
-"
-fi
-
-if [ -n "${sections[dependency_updates]}" ]; then
-  output+="
-## Dependency Updates
-${sections[dependency_updates]}
-"
-fi
-
-if [ -z "${sections[features]}${sections[other_changes]}${sections[bug_fixes]}${sections[istio_upgrades]}${sections[security_updates]}${sections[dependency_updates]}" ]; then
-  output+="
-No user-facing changes since ${since_tag}.
-"
-fi
-
-if [ -n "${output_file}" ]; then
-  printf '%s' "${output}" > "${output_file}"
-  echo "Release notes written to ${output_file}" >&2
-else
-  printf '%s' "${output}"
-fi
+printf '%s' "${output}" > "${output_file}"
+echo "Release notes written to ${output_file}"
