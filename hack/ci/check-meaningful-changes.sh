@@ -24,7 +24,14 @@ if [[ "${current_commit}" != "${branch_head}" ]]; then
 fi
 
 # Skip if HEAD is already tagged — this branch has already been released.
-head_tag=$(git tag --points-at HEAD | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+head_tag=""
+grep_exit=0
+head_tag=$(git tag --points-at HEAD | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1) || grep_exit=$?
+# grep exits 1 when no tags match — that is not an error, just means HEAD is untagged
+if [[ "${grep_exit}" -ne 0 && "${grep_exit}" -ne 1 ]]; then
+  echo "ERROR: failed to check tags at HEAD (exit ${grep_exit})" >&2
+  exit 2
+fi
 if [[ -n "${head_tag}" ]]; then
   echo "HEAD is already tagged as ${head_tag} — skipping"
   exit 1
@@ -46,9 +53,15 @@ changed_files=$(git diff --name-only "${last_tag}...origin/${branch}")
 echo "Changed files since ${last_tag}:"
 echo "${changed_files}"
 
+meaningful=""
+grep_exit=0
 meaningful=$(echo "${changed_files}" \
-  | grep -v -E '^(docs/|\.github/|OWNERS$|CODEOWNERS$|.*\.md$)' \
-  || true)
+  | grep -v -E '^(docs/|\.github/|OWNERS$|CODEOWNERS$|.*\.md$)') || grep_exit=$?
+# grep exits 1 when nothing passes the filter — that means all changes are non-meaningful
+if [[ "${grep_exit}" -ne 0 && "${grep_exit}" -ne 1 ]]; then
+  echo "ERROR: failed to filter changed files (exit ${grep_exit})" >&2
+  exit 2
+fi
 
 if [[ -z "${meaningful}" ]]; then
   echo "No meaningful changes since ${last_tag} on ${branch} — skipping"
