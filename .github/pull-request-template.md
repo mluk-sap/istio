@@ -16,7 +16,7 @@ Changes proposed in this pull request:
 Consider all the following items. If your contribution violates any of them, or you are not sure about it, add a comment to the PR.
 
 - [ ] The code coverage is acceptable.
-- [ ] Release notes for user-facing changes are filled in the `release-note` block above (leave empty if none).
+- [ ] Release notes for user-facing changes are filled in the relevant `release-notes-*` blocks below (leave empty if none).
 - [ ] If Kubebuilder changes were made, you ran `make manifests` and committed the changes before the merge.
 - [ ] Pre-existing managed resources are correctly handled.
 - [ ] The change works on all hyperscalers supported by SAP BTP, Kyma runtime.
@@ -31,9 +31,17 @@ Consider all the following items. If your contribution violates any of them, or 
 
 **Release Notes**
 
-<!-- Add a short release note for user-facing changes, or leave the block empty for no release note (dependency bumps, refactors, test-only changes). -->
+<!-- Fill in the relevant sections for user-facing changes. Leave blocks empty for no release note. -->
 
-```release-note
+```release-notes-new-features
+
+```
+
+```release-notes-bug-fixes
+
+```
+
+```release-notes-istio-updates
 
 ```
 
