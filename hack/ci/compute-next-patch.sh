@@ -16,7 +16,13 @@ IFS='.' read -r major minor < "${repo_root}/MINOR_VERSION"
 
 echo "Computing next patch for ${major}.${minor}.* from git tags..." >&2
 
-highest=$(git tag --merged HEAD | grep -E "^${major}\.${minor}\.[0-9]+$" | sort -V | tail -1 || true)
+highest=""
+grep_exit=0
+highest=$(git tag --merged HEAD | grep -E "^${major}\.${minor}\.[0-9]+$" | sort -V | tail -1) || grep_exit=$?
+if [[ "${grep_exit}" -ne 0 && "${grep_exit}" -ne 1 ]]; then
+  echo "ERROR: failed to query git tags (exit ${grep_exit})" >&2
+  exit 1
+fi
 
 if [ -z "${highest}" ]; then
   echo "No existing tags for ${major}.${minor}.* — starting at ${major}.${minor}.0" >&2

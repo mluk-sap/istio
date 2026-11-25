@@ -32,6 +32,21 @@ require_vars GITHUB_TOKEN
 require_tools gh git jq
 
 echo "Assembling release notes since ${since_tag} until ${until_ref}..."
+
+git rev-parse --verify "${since_tag}" > /dev/null
+since_exit=$?
+if [[ "${since_exit}" -ne 0 ]]; then
+  echo "ERROR: since ref '${since_tag}' not found in git history" >&2
+  exit 1
+fi
+
+git rev-parse --verify "${until_ref}" > /dev/null
+until_exit=$?
+if [[ "${until_exit}" -ne 0 ]]; then
+  echo "ERROR: until ref '${until_ref}' not found in git history" >&2
+  exit 1
+fi
+
 repository=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 echo "Repository: ${repository}"
 
@@ -117,10 +132,12 @@ while IFS= read -r log_line; do
 
   echo "Analyzing PR #${pr_number}: ${log_line}"
 
-  pr_json=$(gh pr view "${pr_number}" --json title,body,labels 2>/dev/null) || {
+  pr_json=$(gh pr view "${pr_number}" --json title,body,labels 2>/dev/null)
+  fetch_exit=$?
+  if [[ "${fetch_exit}" -ne 0 ]]; then
     echo "  Warning: could not fetch PR #${pr_number}, skipping"
     continue
-  }
+  fi
 
   pr_title=$(echo "${pr_json}" | jq -r '.title')
   pr_body=$(echo "${pr_json}"  | jq -r '.body // ""')

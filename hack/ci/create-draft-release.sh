@@ -32,7 +32,7 @@ CHANGELOG_URL="https://github.com/${repository}/compare/${previous_tag}...${rele
 
 echo "Assembling release notes from PR descriptions"
 release_notes_file=$(mktemp)
-"${script_dir}/assemble-release-notes.sh" "${release_notes_file}" "${previous_tag}" "${release_tag}"
+"${script_dir}/assemble-release-notes.sh" "${release_notes_file}" "${previous_tag}" HEAD
 export RELEASE_NOTES
 RELEASE_NOTES=$(cat "${release_notes_file}")
 
@@ -43,8 +43,13 @@ envsubst '$RELEASE_NOTES $ISTIO_VERSION $ENVOY_VERSION $CHANGELOG_URL' \
 body=$(cat "${body_file}")
 
 echo "Looking for existing draft release with tag ${release_tag}..."
-existing_id=$(gh release list --repo "${repository}" --json tagName,isDraft,id \
-  | jq -r ".[] | select(.tagName == \"${release_tag}\" and .isDraft == true) | .id" 2>/dev/null || true)
+existing_id=""
+gh_list_exit=0
+gh_list_output=$(gh release list --repo "${repository}" --json tagName,isDraft,databaseId 2>/dev/null) || gh_list_exit=$?
+if [[ "${gh_list_exit}" -eq 0 ]]; then
+  existing_id=$(echo "${gh_list_output}" \
+    | jq -r ".[] | select(.tagName == \"${release_tag}\" and .isDraft == true) | .databaseId")
+fi
 
 if [ -n "${existing_id}" ]; then
   echo "Found existing draft release (id: ${existing_id}), updating body..."
