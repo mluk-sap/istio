@@ -21,7 +21,7 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          block=$(echo "${PR_BODY}" | awk '/^```release-note/{found=1; next} found && /^```/{exit} found{print}' | sed '/^[[:space:]]*$/d')
+          block=$(echo "${PR_BODY}" | awk '/^```release-notes-/{found=1; next} found && /^```/{exit} found{print}' | sed '/^[[:space:]]*$/d')
           if [ -n "${block}" ]; then
             echo "Release note block found, requesting Technical Writers review"
             gh pr edit "${PR_NUMBER}" --add-reviewer kyma-project/technical-writers --repo "${{ github.repository }}"

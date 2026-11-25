@@ -12,6 +12,24 @@ source "${script_dir}/common.sh"
 require_positional branch "${1:-}"
 require_tools git
 
+branch_head=$(git rev-parse "origin/${branch}")
+current_commit=$(git rev-parse HEAD)
+
+# Fail if the checkout is stale — current commit is not the HEAD of the branch.
+# This would happen on a rerun of an old workflow run against a branch that has moved on.
+if [[ "${current_commit}" != "${branch_head}" ]]; then
+  echo "ERROR: current commit ${current_commit} is not HEAD of origin/${branch} (${branch_head})" >&2
+  echo "Stale rerun detected — aborting to avoid releasing wrong commit." >&2
+  exit 2
+fi
+
+# Skip if HEAD is already tagged — this branch has already been released.
+head_tag=$(git tag --points-at HEAD | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+if [[ -n "${head_tag}" ]]; then
+  echo "HEAD is already tagged as ${head_tag} — skipping"
+  exit 1
+fi
+
 last_tag=$(git tag --merged "origin/${branch}" \
   | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
   | sort -V \
