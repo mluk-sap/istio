@@ -215,8 +215,12 @@ fi
 
 output=""
 for section in "${section_order[@]}"; do
+  if [ "${section}" = "Dependency Updates" ]; then continue; fi
   output+=$(printf '\n## %s\n\n%s\n' "${section}" "${sections[${section}]}")
 done
+if [ -n "${sections[Dependency Updates]+x}" ]; then
+  output+=$(printf '\n## %s\n\n%s\n' "Dependency Updates" "${sections[Dependency Updates]}")
+fi
 
 printf '%s' "${output}" > "${output_file}"
 echo "Release notes written to ${output_file}"

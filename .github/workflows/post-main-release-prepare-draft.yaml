@@ -1,4 +1,4 @@
-name: Update Draft Release
+name: Post Main and Release Prepare Draft
 
 on:
   push:
