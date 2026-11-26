@@ -12,28 +12,23 @@ source "${script_dir}/common.sh"
 require_positional branch "${1:-}"
 require_tools git
 
-branch_head=$(git rev-parse "origin/${branch}")
-current_commit=$(git rev-parse HEAD)
-
-# Fail if the checkout is stale — current commit is not the HEAD of the branch.
-# This would happen on a rerun of an old workflow run against a branch that has moved on.
-if [[ "${current_commit}" != "${branch_head}" ]]; then
-  echo "ERROR: current commit ${current_commit} is not HEAD of origin/${branch} (${branch_head})" >&2
-  echo "Stale rerun detected — aborting to avoid releasing wrong commit." >&2
-  exit 2
+# Skip if autorelease is explicitly disabled via a tag named autorelease-disabled-*.
+# Example: git tag autorelease-disabled-1.34 && git push origin autorelease-disabled-1.34
+if git tag | grep -q '^autorelease-disabled-'; then
+  echo "autorelease disabled for ${branch} — remove the autorelease-disabled-* tag to re-enable"
+  exit 1
 fi
 
-# Skip if HEAD is already tagged — this branch has already been released.
-head_tag=""
+# Skip if the branch tip is already tagged — the current state has already been released.
+branch_tip_tag=""
 grep_exit=0
-head_tag=$(git tag --points-at HEAD | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1) || grep_exit=$?
-# grep exits 1 when no tags match — that is not an error, just means HEAD is untagged
+branch_tip_tag=$(git tag --points-at "origin/${branch}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1) || grep_exit=$?
 if [[ "${grep_exit}" -ne 0 && "${grep_exit}" -ne 1 ]]; then
-  echo "ERROR: failed to check tags at HEAD (exit ${grep_exit})" >&2
+  echo "ERROR: failed to check tags at origin/${branch} (exit ${grep_exit})" >&2
   exit 2
 fi
-if [[ -n "${head_tag}" ]]; then
-  echo "HEAD is already tagged as ${head_tag} — skipping"
+if [[ -n "${branch_tip_tag}" ]]; then
+  echo "Branch tip of ${branch} is already tagged as ${branch_tip_tag} — nothing new to release"
   exit 1
 fi
 
