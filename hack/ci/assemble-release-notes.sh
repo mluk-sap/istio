@@ -40,13 +40,13 @@ section_title_from_block_name() {
 # Returns all release-notes-* block names found in a PR body.
 extract_block_names() {
   local body="$1"
-  echo "${body}" | tr -d '\r' | grep -oE '^\`\`\`release-notes-[a-z][a-z-]*' | sed 's/^```//' || true
+  echo "${body}" | tr -d '\r' | grep -oE '^```release-notes-[a-z][a-z-]*' | cut -c4- || true
 }
 
 # Extracts the content of a named release-notes-* block from a PR body.
 extract_block_content() {
   local body="$1" block_name="$2"
-  echo "${body}" | tr -d '\r' | sed -n "/^\`\`\`${block_name}/,/^\`\`\`/{/^\`\`\`/d;p}"
+  echo "${body}" | tr -d '\r' | awk "/^\`\`\`${block_name}/{found=1;next} found && /^\`\`\`/{found=0;next} found{print}"
 }
 
 # --- section accumulation ---
