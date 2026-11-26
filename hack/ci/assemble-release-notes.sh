@@ -120,18 +120,27 @@ ${line}"
 declare -A seen_prs
 
 while IFS= read -r log_line; do
+  echo "Processing commit: ${log_line}"
+
   pr_number=""
   if [[ "${log_line}" =~ \(#([0-9]+)\)$ ]]; then
     pr_number="${BASH_REMATCH[1]}"
   elif [[ "${log_line}" =~ pull\ request\ #([0-9]+) ]]; then
     pr_number="${BASH_REMATCH[1]}"
   fi
-  [ -n "${pr_number}" ] || continue
-  [ -z "${seen_prs[${pr_number}]+x}" ] || continue
+
+  if [ -z "${pr_number}" ]; then
+    echo "  No PR number found — skipping"
+    continue
+  fi
+
+  if [ -n "${seen_prs[${pr_number}]+x}" ]; then
+    echo "  PR #${pr_number} already processed — skipping"
+    continue
+  fi
   seen_prs["${pr_number}"]=1
 
-  echo "Analyzing PR #${pr_number}: ${log_line}"
-
+  echo "  Fetching PR #${pr_number}..."
   pr_json=""
   if pr_json=$(gh pr view "${pr_number}" --json title,body,labels 2>/dev/null); then
     echo "  Found PR #${pr_number} in current repo"
@@ -153,32 +162,35 @@ while IFS= read -r log_line; do
   pr_title=$(echo "${pr_json}" | jq -r '.title')
   pr_body=$(echo "${pr_json}"  | jq -r '.body // ""')
   pr_labels=$(echo "${pr_json}" | jq -r '[.labels[].name] | join(",")')
+  echo "  Title: ${pr_title}"
+  echo "  Labels: ${pr_labels:-none}"
 
   pr_link="See [#${pr_number}](https://github.com/${repository}/pull/${pr_number})"
 
   # Extract all release-notes-* blocks.
   blocks_found=0
   while IFS=: read -r block_name block_line; do
-    [ -n "${block_name}" ] || continue
+    if [ -z "${block_name}" ]; then
+      continue
+    fi
     blocks_found=1
     section=$(section_title_from_block_name "${block_name}")
-    echo "  Found block '${block_name}' -> section '${section}'"
-    # Accumulate lines for this block per PR, then format as bullet after loop.
-    # We use a temp var keyed by pr_number+block_name.
     varkey="block_${pr_number}_${block_name//[^a-zA-Z0-9]/_}"
     if [ -z "${!varkey+x}" ]; then
+      echo "  Found block '${block_name}' -> section '${section}'"
       printf -v "${varkey}" '%s' "${block_line}"
+      sections_for_pr="${sections_for_pr:-}|${section}:${varkey}"
     else
       printf -v "${varkey}" '%s\n%s' "${!varkey}" "${block_line}"
     fi
-    # Track which (section, varkey) pairs we've seen for this PR.
-    sections_for_pr="${sections_for_pr:-}|${section}:${varkey}"
   done < <(extract_release_note_blocks "${pr_body}")
 
   # Flush accumulated block content to sections.
   if [ "${blocks_found}" -eq 1 ]; then
     while IFS=: read -r section varkey; do
-      [ -n "${section}" ] || continue
+      if [ -z "${section}" ]; then
+        continue
+      fi
       content="${!varkey}"
       note_line="$(format_bullet "${content}") ${pr_link}"
       echo "  Routing to '${section}'"
@@ -186,7 +198,6 @@ while IFS= read -r log_line; do
     done < <(echo "${sections_for_pr:-}" | tr '|' '\n')
     sections_for_pr=""
   elif echo "${pr_labels}" | grep -qE "(^|,)dependencies(,|$)"; then
-    # Dependabot/automated dependency PRs: auto-add to Dependency Updates.
     note_line="$(format_bullet "${pr_title}") ${pr_link}"
     append_to_section "Dependency Updates" "${note_line}"
     echo "  Routing to Dependency Updates (auto-generated from dependencies label)"
