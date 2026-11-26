@@ -23,7 +23,9 @@ echo "Create draft release: repository: ${repository}, branch: ${current_branch}
 echo "Resolving component versions"
 export ISTIO_VERSION ENVOY_VERSION
 ISTIO_VERSION=$("${script_dir}/../get-module-istio-version.sh")
+echo "Istio version: ${ISTIO_VERSION}, pulling proxy image to extract Envoy version..."
 ENVOY_VERSION=$("${script_dir}/../get-module-envoy-version.sh" "${ISTIO_VERSION}")
+echo "Envoy version: ${ENVOY_VERSION}"
 
 echo "Computing changelog URL"
 export CHANGELOG_URL
