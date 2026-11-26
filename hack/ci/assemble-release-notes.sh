@@ -45,7 +45,7 @@ section_title_from_block_name() {
 # Returns all release-notes-* block names found in a PR body.
 extract_block_names() {
   local body="$1"
-  echo "${body}" | tr -d '\r' | grep -oE '^\`\`\`release-notes-[a-z][a-z-]*' | sed 's/^```//'
+  echo "${body}" | tr -d '\r' | grep -oE '^\`\`\`release-notes-[a-z][a-z-]*' | sed 's/^```//' || true
 }
 
 # Extracts the content of a named release-notes-* block from a PR body.
