@@ -43,18 +43,25 @@ envsubst '$RELEASE_NOTES $ISTIO_VERSION $ENVOY_VERSION $CHANGELOG_URL' \
   < "${script_dir}/release-body.md.tmpl" > "${body_file}"
 body=$(cat "${body_file}")
 
-echo "Looking for existing draft release with tag ${release_tag}..."
+echo "Looking for existing draft release with name ${release_tag}..."
 existing_releases=$(gh api "repos/${repository}/releases")
 
+# GitHub renames tag_name to "untagged-<hash>" for draft releases where the tag
+# doesn't exist yet, so we match on .name (the release title) instead.
 published_id=$(echo "${existing_releases}" \
-  | jq -r ".[] | select(.tag_name == \"${release_tag}\" and .draft == false) | .id")
+  | jq -r ".[] | select(.name == \"${release_tag}\" and .draft == false) | .id")
 if [ -n "${published_id}" ]; then
-  echo "ERROR: a published release with tag ${release_tag} already exists (id: ${published_id}) — refusing to overwrite" >&2
+  echo "ERROR: a published release named ${release_tag} already exists (id: ${published_id}) — refusing to overwrite" >&2
   exit 1
 fi
 
-existing_id=$(echo "${existing_releases}" \
-  | jq -r ".[] | select(.tag_name == \"${release_tag}\" and .draft == true) | .id")
+existing_ids=$(echo "${existing_releases}" \
+  | jq -r ".[] | select(.name == \"${release_tag}\" and .draft == true) | .id")
+existing_id=$(echo "${existing_ids}" | head -1)
+
+if [ "$(echo "${existing_ids}" | wc -l)" -gt 1 ]; then
+  echo "WARNING: multiple draft releases named ${release_tag} found — updating the first (id: ${existing_id})"
+fi
 
 if [ -n "${existing_id}" ]; then
   echo "Found existing draft release (id: ${existing_id}), updating..."
