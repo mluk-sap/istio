@@ -1,107 +1,39 @@
 name: Schedule Auto Patch Release
 
+# Orchestrator for the scheduled auto patch release. It does no release work
+# itself: each week it discovers the supported release-X.Y branches and
+# dispatches the worker workflow once per branch with --ref <branch>. Running
+# with --ref makes the worker execute entirely in that branch's context — its
+# own workflow file and its own hack/ci scripts — so no branch is ever checked
+# out or evaluated from another branch's context.
+#
+# workflow_dispatch is one of the two events (with repository_dispatch) that
+# GITHUB_TOKEN is allowed to trigger, so the default token is enough to fan out.
+
+permissions:
+  actions: write
+
 on:
   schedule:
     - cron: '0 3 * * 1'  # Every Monday at 03:00 UTC
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Dry run (print what would be released without triggering anything)"
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
-permissions:
-  actions: write   # required to dispatch release-istio.yaml via the Actions API
-  contents: read
-
 jobs:
-  determine-releases:
-    name: Determine releases
+  dispatch-workers:
+    name: Dispatch workers
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.build-matrix.outputs.matrix }}
-      has_releases: ${{ steps.build-matrix.outputs.has_releases }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Fetch all tags
-        run: git fetch --tags --quiet
-
-      - name: Build release matrix
-        id: build-matrix
+      - name: Dispatch auto patch release worker for each release branch
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAINTAINED_RELEASE_BRANCHES_COUNT: ${{ vars.MAINTAINED_RELEASE_BRANCHES_COUNT }}
         run: |
-          set -euo pipefail
-          chmod +x hack/ci/find-release-branches.sh hack/ci/check-meaningful-changes.sh hack/ci/compute-next-patch.sh
-
-          matrix_entries="[]"
-
-          while IFS= read -r branch; do
-            [[ -z "${branch}" ]] && continue
-            echo "--- Checking branch ${branch} for meaningful changes ---"
-
-            check_exit=0
-            bash hack/ci/check-meaningful-changes.sh "${branch}" || check_exit=$?
-
-            if [[ "${check_exit}" -eq 1 ]]; then
-              echo "No meaningful changes on ${branch}, skipping"
-              continue
-            elif [[ "${check_exit}" -ne 0 ]]; then
-              echo "ERROR: check-meaningful-changes failed with exit ${check_exit}"
-              exit 1
-            fi
-
-            version=$(bash hack/ci/compute-next-patch.sh)
-            echo "Will release ${version} from ${branch}"
-
-            entry=$(jq -n \
-              --arg branch "${branch}" \
-              --arg version "${version}" \
-              '{"branch":$branch,"version":$version}')
-            matrix_entries=$(echo "${matrix_entries}" | jq --argjson e "${entry}" '. + [$e]')
-          done < <(bash hack/ci/find-release-branches.sh)
-
-          if [[ "$(echo "${matrix_entries}" | jq 'length')" == "0" ]]; then
-            echo "No releases needed."
-            echo "has_releases=false" >> "${GITHUB_OUTPUT}"
-            matrix_entries='[{"branch":"","version":""}]'
-          else
-            echo "has_releases=true" >> "${GITHUB_OUTPUT}"
-          fi
-
-          echo "matrix=$(echo "${matrix_entries}" | jq -c '{include:.}')" >> "${GITHUB_OUTPUT}"
-
-  trigger-release:
-    name: Release ${{ matrix.version }} from ${{ matrix.branch }}
-    needs: determine-releases
-    if: ${{ needs.determine-releases.outputs.has_releases == 'true' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.determine-releases.outputs.matrix) }}
-    steps:
-      - name: Trigger release workflow
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh workflow run release-istio.yaml \
-            --repo "${{ github.repository }}" \
-            --ref "${{ matrix.branch }}" \
-            --field "version=${{ matrix.version }}"
-          echo "Triggered release-istio.yaml for ${{ matrix.branch }} version ${{ matrix.version }}"
-
-      - name: "[DRY RUN] Summary"
-        if: ${{ inputs.dry_run }}
-        run: |
-          echo "[DRY RUN] Would trigger release-istio.yaml"
-          echo "  branch:  ${{ matrix.branch }}"
-          echo "  version: ${{ matrix.version }}"
+          for branch in $(bash hack/ci/find-maintained-release-branches.sh); do
+            echo "Dispatching auto-patch-release-worker for ${branch}"
+            gh workflow run auto-patch-release-worker.yaml --ref "${branch}"
+          done
