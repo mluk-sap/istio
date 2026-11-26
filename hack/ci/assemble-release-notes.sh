@@ -172,19 +172,18 @@ while IFS= read -r log_line; do
       printf -v "${varkey}" '%s\n%s' "${!varkey}" "${block_line}"
     fi
     # Track which (section, varkey) pairs we've seen for this PR.
-    sections_for_pr="${sections_for_pr:-} ${section}:${varkey}"
+    sections_for_pr="${sections_for_pr:-}|${section}:${varkey}"
   done < <(extract_release_note_blocks "${pr_body}")
 
   # Flush accumulated block content to sections.
   if [ "${blocks_found}" -eq 1 ]; then
-    for entry in ${sections_for_pr:-}; do
-      [ -n "${entry}" ] || continue
-      section="${entry%%:*}"
-      varkey="${entry#*:}"
+    while IFS=: read -r section varkey; do
+      [ -n "${section}" ] || continue
       content="${!varkey}"
       note_line="$(format_bullet "${content}") ${pr_link}"
+      echo "  Routing to '${section}'"
       append_to_section "${section}" "${note_line}"
-    done
+    done < <(echo "${sections_for_pr:-}" | tr '|' '\n')
     sections_for_pr=""
   elif echo "${pr_labels}" | grep -qE "(^|,)dependencies(,|$)"; then
     # Dependabot/automated dependency PRs: auto-add to Dependency Updates.
