@@ -132,11 +132,22 @@ while IFS= read -r log_line; do
 
   echo "Analyzing PR #${pr_number}: ${log_line}"
 
-  pr_json=$(gh pr view "${pr_number}" --json title,body,labels 2>/dev/null)
-  fetch_exit=$?
-  if [[ "${fetch_exit}" -ne 0 ]]; then
-    echo "  Warning: could not fetch PR #${pr_number}, skipping"
-    continue
+  pr_json=""
+  if pr_json=$(gh pr view "${pr_number}" --json title,body,labels 2>/dev/null); then
+    echo "  Found PR #${pr_number} in current repo"
+  else
+    upstream_repo=$(cat "${script_dir}/../../RELEASE_REPOSITORY")
+    if [[ "${upstream_repo}" == "${repository}" ]]; then
+      echo "  Warning: could not fetch PR #${pr_number}, skipping"
+      continue
+    fi
+    echo "  PR #${pr_number} not found in current repo, trying upstream (${upstream_repo})"
+    if pr_json=$(gh pr view "${pr_number}" --repo "${upstream_repo}" --json title,body,labels 2>/dev/null); then
+      echo "  Found PR #${pr_number} in upstream repo"
+    else
+      echo "  Warning: could not fetch PR #${pr_number} from current repo or upstream, skipping"
+      continue
+    fi
   fi
 
   pr_title=$(echo "${pr_json}" | jq -r '.title')
