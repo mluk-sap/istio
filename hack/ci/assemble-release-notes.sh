@@ -24,31 +24,14 @@ script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 # shellcheck source=./common.sh
 source "${script_dir}/common.sh"
 
-require_positional output_file "$1"
-require_positional since_tag "$2"
-require_positional until_ref "$3"
+# --- logging ---
 
-require_vars GITHUB_TOKEN
-require_tools gh git jq
+log_indent=0
+increase_log_indent() { ((log_indent++)) || true; }
+decrease_log_indent() { ((log_indent--)) || true; }
+log() { printf '%*s%s\n' "$((log_indent * 2))" "" "$*"; }
 
-echo "Assembling release notes since ${since_tag} until ${until_ref}..."
-
-git rev-parse --verify "${since_tag}" > /dev/null
-since_exit=$?
-if [[ "${since_exit}" -ne 0 ]]; then
-  echo "ERROR: since ref '${since_tag}' not found in git history" >&2
-  exit 1
-fi
-
-git rev-parse --verify "${until_ref}" > /dev/null
-until_exit=$?
-if [[ "${until_exit}" -ne 0 ]]; then
-  echo "ERROR: until ref '${until_ref}' not found in git history" >&2
-  exit 1
-fi
-
-repository=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-echo "Repository: ${repository}"
+# --- block extraction ---
 
 # Derives a section title from a block name.
 # release-notes-new-features -> New Features
@@ -59,27 +42,32 @@ section_title_from_block_name() {
   echo "${spaced}" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2); print}'
 }
 
-# Extracts the content of all ```release-notes-* blocks from a PR body.
-# Outputs lines in the format: "<block_name>:<content_line>"
-extract_release_note_blocks() {
+# Returns all release-notes-* block names found in a PR body.
+extract_block_names() {
   local body="$1"
-  echo "${body}" | tr -d '\r' | awk '
-    /^```release-notes-[a-z]/ {
-      block_name = substr($0, 4)
-      # strip trailing whitespace
-      gsub(/[[:space:]]+$/, "", block_name)
-      found = 1
-      next
-    }
-    found && /^```/ {
-      found = 0
-      block_name = ""
-      next
-    }
-    found && /[^[:space:]]/ {
-      print block_name ":" $0
-    }
-  '
+  echo "${body}" | tr -d '\r' | grep -oE '^\`\`\`release-notes-[a-z][a-z-]*' | sed 's/^```//'
+}
+
+# Extracts the content of a named release-notes-* block from a PR body.
+extract_block_content() {
+  local body="$1" block_name="$2"
+  echo "${body}" | tr -d '\r' | sed -n "/^\`\`\`${block_name}/,/^\`\`\`/{/^\`\`\`/d;p}"
+}
+
+# --- section accumulation ---
+
+# sections maps section_name -> accumulated bullet entries
+declare -A sections
+declare -a section_order
+any_release_notes=0
+
+# Registers a section in the output order without adding content.
+register_section() {
+  local section="$1"
+  if [ -z "${sections[${section}]+x}" ]; then
+    section_order+=("${section}")
+    sections["${section}"]=""
+  fi
 }
 
 # Formats a multi-line block as a markdown bullet: first line prefixed with "- ",
@@ -96,31 +84,70 @@ format_bullet() {
   done <<< "$1"
 }
 
-# sections maps section_name -> accumulated bullet lines
-# section_order tracks insertion order for deterministic output
-declare -A sections
-declare -a section_order
-
-any_release_notes=0
-
+# Appends a PR entry to a section. Registers the section even if block_content is empty.
 append_to_section() {
-  local section="$1" line="$2"
+  local section="$1" block_content="$2" pr_link="$3"
+  register_section "${section}"
+  if [ -z "${block_content// }" ]; then return; fi
   any_release_notes=1
-  if [ -z "${sections[${section}]+x}" ]; then
-    section_order+=("${section}")
-    sections["${section}"]="${line}"
-  elif [ -n "${sections[${section}]}" ]; then
-    sections["${section}"]="${sections[${section}]}
-${line}"
+  local entry
+  entry="$(format_bullet "${block_content}")${pr_link:+ ${pr_link}}"
+  if [ -n "${sections[${section}]}" ]; then
+    sections["${section}"]=$(printf '%s\n%s' "${sections[${section}]}" "${entry}")
   else
-    sections["${section}"]="${line}"
+    sections["${section}"]="${entry}"
   fi
 }
+
+# --- output rendering ---
+
+render_output() {
+  local output=""
+  for section in "${section_order[@]}"; do
+    if [ "${section}" = "Dependency Updates" ]; then continue; fi
+    output+=$(printf '\n## %s\n\n%s\n' "${section}" "${sections[${section}]}")
+  done
+  if [ -n "${sections[Dependency Updates]+x}" ]; then
+    output+=$(printf '\n## %s\n\n%s\n' "Dependency Updates" "${sections[Dependency Updates]}")
+  fi
+  printf '%s' "${output}"
+}
+
+# --- main ---
+
+require_positional output_file "$1"
+require_positional since_tag "$2"
+require_positional until_ref "$3"
+
+require_vars GITHUB_TOKEN
+require_tools gh git jq
+
+log "Assembling release notes since ${since_tag} until ${until_ref}..."
+
+git rev-parse --verify "${since_tag}" > /dev/null
+since_exit=$?
+if [[ "${since_exit}" -ne 0 ]]; then
+  echo "ERROR: since ref '${since_tag}' not found in git history" >&2
+  exit 1
+fi
+
+git rev-parse --verify "${until_ref}" > /dev/null
+until_exit=$?
+if [[ "${until_exit}" -ne 0 ]]; then
+  echo "ERROR: until ref '${until_ref}' not found in git history" >&2
+  exit 1
+fi
+
+repository=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+upstream_repo=$(cat "${script_dir}/../../RELEASE_REPOSITORY")
+log "Repository: ${repository}"
+log "Upstream repository: ${upstream_repo}"
 
 declare -A seen_prs
 
 while IFS= read -r log_line; do
-  echo "Processing commit: ${log_line}"
+  log "Processing commit: ${log_line}"
+  increase_log_indent
 
   pr_number=""
   if [[ "${log_line}" =~ \(#([0-9]+)\)$ ]]; then
@@ -130,97 +157,69 @@ while IFS= read -r log_line; do
   fi
 
   if [ -z "${pr_number}" ]; then
-    echo "  No PR number found — skipping"
-    continue
+    log "No PR number found — skipping"
+    decrease_log_indent; continue
   fi
 
   if [ -n "${seen_prs[${pr_number}]+x}" ]; then
-    echo "  PR #${pr_number} already processed — skipping"
-    continue
+    log "PR #${pr_number} already processed — skipping"
+    decrease_log_indent; continue
   fi
   seen_prs["${pr_number}"]=1
 
-  echo "  Fetching PR #${pr_number}..."
+  log "Fetching PR #${pr_number}..."
   pr_json=""
   if pr_json=$(gh pr view "${pr_number}" --json title,body,labels 2>/dev/null); then
-    echo "  Found PR #${pr_number} in current repo"
+    log "Found PR #${pr_number} in current repo"
   else
-    upstream_repo=$(cat "${script_dir}/../../RELEASE_REPOSITORY")
     if [[ "${upstream_repo}" == "${repository}" ]]; then
-      echo "  Warning: could not fetch PR #${pr_number}, skipping"
-      continue
+      log "Warning: could not fetch PR #${pr_number}, skipping"
+      decrease_log_indent; continue
     fi
-    echo "  PR #${pr_number} not found in current repo, trying upstream (${upstream_repo})"
+    log "PR #${pr_number} not found in current repo, trying upstream (${upstream_repo})"
     if pr_json=$(gh pr view "${pr_number}" --repo "${upstream_repo}" --json title,body,labels 2>/dev/null); then
-      echo "  Found PR #${pr_number} in upstream repo"
+      log "Found PR #${pr_number} in upstream repo"
     else
-      echo "  Warning: could not fetch PR #${pr_number} from current repo or upstream, skipping"
-      continue
+      log "Warning: could not fetch PR #${pr_number} from current repo or upstream, skipping"
+      decrease_log_indent; continue
     fi
   fi
 
   pr_title=$(echo "${pr_json}" | jq -r '.title')
   pr_body=$(echo "${pr_json}"  | jq -r '.body // ""')
   pr_labels=$(echo "${pr_json}" | jq -r '[.labels[].name] | join(",")')
-  echo "  Title: ${pr_title}"
-  echo "  Labels: ${pr_labels:-none}"
+  log "Title: ${pr_title}"
+  log "Labels: ${pr_labels:-none}"
 
-  pr_link="See [#${pr_number}](https://github.com/${repository}/pull/${pr_number})"
+  pr_link="[#${pr_number}](https://github.com/${repository}/pull/${pr_number})"
 
-  # Extract all release-notes-* blocks.
+  block_names=$(extract_block_names "${pr_body}")
   blocks_found=0
-  while IFS=: read -r block_name block_line; do
-    if [ -z "${block_name}" ]; then
-      continue
-    fi
+  for block_name in ${block_names}; do
     blocks_found=1
     section=$(section_title_from_block_name "${block_name}")
-    varkey="block_${pr_number}_${block_name//[^a-zA-Z0-9]/_}"
-    if [ -z "${!varkey+x}" ]; then
-      echo "  Found block '${block_name}' -> section '${section}'"
-      printf -v "${varkey}" '%s' "${block_line}"
-      sections_for_pr="${sections_for_pr:-}|${section}:${varkey}"
-    else
-      printf -v "${varkey}" '%s\n%s' "${!varkey}" "${block_line}"
-    fi
-  done < <(extract_release_note_blocks "${pr_body}")
+    log "Found block '${block_name}' -> section '${section}'"
+    content=$(extract_block_content "${pr_body}" "${block_name}")
+    log "Routing to '${section}'"
+    append_to_section "${section}" "${content}" "${pr_link}"
+  done
 
-  # Flush accumulated block content to sections.
-  if [ "${blocks_found}" -eq 1 ]; then
-    while IFS=: read -r section varkey; do
-      if [ -z "${section}" ]; then
-        continue
-      fi
-      content="${!varkey}"
-      note_line="$(format_bullet "${content}") ${pr_link}"
-      echo "  Routing to '${section}'"
-      append_to_section "${section}" "${note_line}"
-    done < <(echo "${sections_for_pr:-}" | tr '|' '\n')
-    sections_for_pr=""
-  elif echo "${pr_labels}" | grep -qE "(^|,)dependencies(,|$)"; then
-    note_line="$(format_bullet "${pr_title}") ${pr_link}"
-    append_to_section "Dependency Updates" "${note_line}"
-    echo "  Routing to Dependency Updates (auto-generated from dependencies label)"
-  else
-    echo "  Skipping: no release-notes-* blocks and no dependencies label"
+  if [ "${blocks_found}" -eq 0 ]; then
+    if echo "${pr_labels}" | grep -qE "(^|,)dependencies(,|$)"; then
+      append_to_section "Dependency Updates" "${pr_title}" "${pr_link}"
+      log "Routing to Dependency Updates (auto-generated from dependencies label)"
+    else
+      log "Skipping: no release-notes-* blocks and no dependencies label"
+    fi
   fi
 
+  decrease_log_indent
 done < <(git log --oneline "${since_tag}..${until_ref}")
 
-# If nothing was collected, fall back to a generic dependency update notice.
 if [ "${any_release_notes}" -eq 0 ]; then
-  echo "No release notes found — using generic fallback"
-  append_to_section "Dependency Updates" "This version includes dependency updates and security patches."
+  log "No release notes found — using generic fallback"
+  append_to_section "Dependency Updates" "This version includes dependency updates and security patches." ""
 fi
 
-output=""
-for section in "${section_order[@]}"; do
-  if [ "${section}" = "Dependency Updates" ]; then continue; fi
-  output+=$(printf '\n## %s\n\n%s\n' "${section}" "${sections[${section}]}")
-done
-if [ -n "${sections[Dependency Updates]+x}" ]; then
-  output+=$(printf '\n## %s\n\n%s\n' "Dependency Updates" "${sections[Dependency Updates]}")
-fi
-
-printf '%s' "${output}" > "${output_file}"
-echo "Release notes written to ${output_file}"
+printf '%s' "$(render_output)" > "${output_file}"
+log "Release notes written to ${output_file}"
