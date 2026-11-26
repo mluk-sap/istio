@@ -69,6 +69,20 @@ jobs:
             exit 3
           fi
 
+      - name: Check whether published release already exists
+        id: check-whether-published-release-exists
+        if: ${{ inputs.skip_all_checks == false }}
+        env:
+          CURRENT_RELEASE: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          published_id=$(gh api "repos/${{ github.repository }}/releases" \
+            | jq -r ".[] | select(.tag_name == \"${CURRENT_RELEASE}\" and .draft == false) | .id")
+          if [ -n "${published_id}" ]; then
+            echo "Published release with tag ${CURRENT_RELEASE} already exists (id: ${published_id})"
+            exit 5
+          fi
+
       - name: Check whether image already exists before the release
         id: check-whether-image-exists-before-release
         if: ${{ inputs.skip_all_checks == false && inputs.skip_img_check == false }}

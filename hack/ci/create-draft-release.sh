@@ -16,8 +16,9 @@ require_tools gh git jq curl envsubst
 
 repository=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 github_api_repo_url="https://api.github.com/repos/${repository}"
+current_branch=$(git rev-parse --abbrev-ref HEAD)
 
-echo "Create draft release: repository: ${repository}, tag: ${release_tag}, output file: ${release_id_output_file}"
+echo "Create draft release: repository: ${repository}, branch: ${current_branch}, tag: ${release_tag}, output file: ${release_id_output_file}"
 
 echo "Resolving component versions"
 export ISTIO_VERSION ENVOY_VERSION
@@ -43,23 +44,28 @@ envsubst '$RELEASE_NOTES $ISTIO_VERSION $ENVOY_VERSION $CHANGELOG_URL' \
 body=$(cat "${body_file}")
 
 echo "Looking for existing draft release with tag ${release_tag}..."
-existing_id=""
-gh_list_exit=0
-gh_list_output=$(gh release list --repo "${repository}" --json tagName,isDraft,databaseId 2>/dev/null) || gh_list_exit=$?
-if [[ "${gh_list_exit}" -eq 0 ]]; then
-  existing_id=$(echo "${gh_list_output}" \
-    | jq -r ".[] | select(.tagName == \"${release_tag}\" and .isDraft == true) | .databaseId")
+existing_releases=$(gh api "repos/${repository}/releases")
+
+published_id=$(echo "${existing_releases}" \
+  | jq -r ".[] | select(.tag_name == \"${release_tag}\" and .draft == false) | .id")
+if [ -n "${published_id}" ]; then
+  echo "ERROR: a published release with tag ${release_tag} already exists (id: ${published_id}) — refusing to overwrite" >&2
+  exit 1
 fi
 
+existing_id=$(echo "${existing_releases}" \
+  | jq -r ".[] | select(.tag_name == \"${release_tag}\" and .draft == true) | .id")
+
 if [ -n "${existing_id}" ]; then
-  echo "Found existing draft release (id: ${existing_id}), updating body..."
+  echo "Found existing draft release (id: ${existing_id}), updating..."
   curl -s -S -f -L \
     -X PATCH \
     -H "Accept: application/vnd.github+json" \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     "${github_api_repo_url}/releases/${existing_id}" \
-    -d "$(jq -n --arg body "${body}" '{"body": $body}')" > /dev/null
+    -d "$(jq -n --arg body "${body}" --arg branch "${current_branch}" \
+      '{"body": $body, "target_commitish": $branch}')" > /dev/null
   release_id="${existing_id}"
 else
   echo "No existing draft release found, creating new draft for ${release_tag}..."
@@ -67,7 +73,8 @@ else
     --arg tag_name "${release_tag}" \
     --arg name "${release_tag}" \
     --arg body "${body}" \
-    '{"tag_name": $tag_name, "name": $name, "body": $body, "draft": true}')
+    --arg branch "${current_branch}" \
+    '{"tag_name": $tag_name, "name": $name, "body": $body, "draft": true, "target_commitish": $branch}')
   release_id=$(curl -s -S -f -L \
     -X POST \
     -H "Accept: application/vnd.github+json" \
