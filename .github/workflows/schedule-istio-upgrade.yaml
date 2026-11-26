@@ -34,6 +34,7 @@ jobs:
       - name: Dispatch Istio upgrade worker for each target branch
         env:
           MAINTAINED_RELEASE_BRANCHES_COUNT: ${{ vars.MAINTAINED_RELEASE_BRANCHES_COUNT }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           for branch in main $(bash hack/ci/find-maintained-release-branches.sh); do
