@@ -12,13 +12,6 @@ source "${script_dir}/common.sh"
 require_positional branch "${1:-}"
 require_tools git
 
-# Skip if autorelease is explicitly disabled via a tag named autorelease-disabled-*.
-# Example: git tag autorelease-disabled-1.34 && git push origin autorelease-disabled-1.34
-if git tag | grep -q '^autorelease-disabled-'; then
-  echo "autorelease disabled for ${branch} — remove the autorelease-disabled-* tag to re-enable"
-  exit 1
-fi
-
 # Skip if the branch tip is already tagged — the current state has already been released.
 branch_tip_tag=""
 grep_exit=0
