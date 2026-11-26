@@ -63,6 +63,8 @@ jobs:
 
       - name: Trigger release workflow
         if: steps.check.outputs.skip == 'false' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh workflow run release-istio.yaml \
             --repo "${{ github.repository }}" \

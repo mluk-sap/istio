@@ -32,6 +32,7 @@ jobs:
       - name: Dispatch auto patch release worker for each release branch
         env:
           MAINTAINED_RELEASE_BRANCHES_COUNT: ${{ vars.MAINTAINED_RELEASE_BRANCHES_COUNT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           for branch in $(bash hack/ci/find-maintained-release-branches.sh); do
             echo "Dispatching auto-patch-release-worker for ${branch}"
