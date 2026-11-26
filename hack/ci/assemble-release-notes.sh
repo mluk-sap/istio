@@ -24,12 +24,7 @@ script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 # shellcheck source=./common.sh
 source "${script_dir}/common.sh"
 
-# --- logging ---
-
-log_indent=0
-increase_log_indent() { ((log_indent++)) || true; }
-decrease_log_indent() { ((log_indent--)) || true; }
-log() { printf '%*s%s\n' "$((log_indent * 2))" "" "$*"; }
+require_bash 4
 
 # --- block extraction ---
 
@@ -59,7 +54,6 @@ extract_block_content() {
 # sections maps section_name -> accumulated bullet entries
 declare -A sections
 declare -a section_order
-any_release_notes=0
 
 # Registers a section in the output order without adding content.
 register_section() {
@@ -89,7 +83,6 @@ append_to_section() {
   local section="$1" block_content="$2" pr_link="$3"
   register_section "${section}"
   if [ -z "${block_content// }" ]; then return; fi
-  any_release_notes=1
   local entry
   entry="$(format_bullet "${block_content}")${pr_link:+ ${pr_link}}"
   if [ -n "${sections[${section}]}" ]; then
@@ -104,7 +97,7 @@ append_to_section() {
 render_output() {
   local output=""
   for section in "${section_order[@]}"; do
-    if [ "${section}" = "Dependency Updates" ]; then continue; fi
+    if [ "${section}" = "Dependency Updates" ]; then continue; fi  # appended last below
     output+=$(printf '\n## %s\n\n%s\n' "${section}" "${sections[${section}]}")
   done
   if [ -n "${sections[Dependency Updates]+x}" ]; then
@@ -194,9 +187,7 @@ while IFS= read -r log_line; do
   pr_link="[#${pr_number}](https://github.com/${repository}/pull/${pr_number})"
 
   block_names=$(extract_block_names "${pr_body}")
-  blocks_found=0
   for block_name in ${block_names}; do
-    blocks_found=1
     section=$(section_title_from_block_name "${block_name}")
     log "Found block '${block_name}' -> section '${section}'"
     content=$(extract_block_content "${pr_body}" "${block_name}")
@@ -204,7 +195,7 @@ while IFS= read -r log_line; do
     append_to_section "${section}" "${content}" "${pr_link}"
   done
 
-  if [ "${blocks_found}" -eq 0 ]; then
+  if [ -z "${block_names}" ]; then
     if echo "${pr_labels}" | grep -qE "(^|,)dependencies(,|$)"; then
       append_to_section "Dependency Updates" "${pr_title}" "${pr_link}"
       log "Routing to Dependency Updates (auto-generated from dependencies label)"
@@ -216,10 +207,12 @@ while IFS= read -r log_line; do
   decrease_log_indent
 done < <(git log --oneline "${since_tag}..${until_ref}")
 
-if [ "${any_release_notes}" -eq 0 ]; then
+if [ "${#section_order[@]}" -eq 0 ]; then
   log "No release notes found — using generic fallback"
   append_to_section "Dependency Updates" "This version includes dependency updates and security patches." ""
 fi
 
-printf '%s' "$(render_output)" > "${output_file}"
-log "Release notes written to ${output_file}"
+output="$(render_output)"
+printf '%s' "${output}" > "${output_file}"
+log "Release notes written to ${output_file}:"
+echo "${output}"
