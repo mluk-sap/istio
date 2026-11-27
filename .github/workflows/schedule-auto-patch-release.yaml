@@ -34,5 +34,6 @@ jobs:
         run: |
           for branch in $(bash hack/ci/find-maintained-release-branches.sh); do
             echo "Dispatching auto-patch-release-worker for ${branch}"
-            gh workflow run auto-patch-release-worker.yaml --ref "${branch}"
+            gh workflow run auto-patch-release-worker.yaml --ref "${branch}" \
+              || echo "WARNING: failed to dispatch auto-patch-release-worker for ${branch}"
           done
