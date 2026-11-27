@@ -397,9 +397,10 @@ jobs:
       - name: Publish release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_RELEASE: ${{ inputs.version }}
           RELEASE_ID: ${{ needs.create-draft-release.outputs.release_id }}
         run: |
-          "${{ github.workspace }}/hack/ci/publish-release.sh" "${RELEASE_ID}"
+          "${{ github.workspace }}/hack/ci/publish-release.sh" "${RELEASE_ID}" "${CURRENT_RELEASE}"
 
   upload-release-report:
     name: Upload release report
