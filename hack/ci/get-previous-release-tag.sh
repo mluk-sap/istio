@@ -5,10 +5,10 @@
 # Usage:
 #   get-previous-release-tag.sh <release_tag>
 #
-# patch (X.Y.Z, Z>0): highest X.Y.* tag, excluding <release_tag> itself so the
-#   script is idempotent — re-running after the tag already exists returns the same result.
-# minor (X.Y.0, Y>0): highest X.(Y-1).* tag.
-# major (X.0.0):      highest (X-1).*.* tag.
+# Counts down from (X.Y.Z-1) looking for an existing tag. When patch reaches
+# -1, rolls to the next lower minor at patch 0 (not 999 — the previous minor
+# series starts at .0). Same for minor rolling to major. The starting point is
+# (patch-1) not (patch) because the tag may not exist yet.
 
 set -eo pipefail
 script_dir="$(dirname "$(readlink -f "$0")")"
@@ -25,32 +25,28 @@ patch=$(echo "${release_tag}" | cut -d. -f3)
 all_tags=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
 echo "Found $(echo "${all_tags}" | grep -c . || true) release tag(s) in total" >&2
 
-find_latest_tag_for_minor() {
-  local major="$1" minor="$2"
-  echo "Looking for latest ${major}.${minor}.* tag..." >&2
-  echo "${all_tags}" | grep -E "^${major}\.${minor}\.[0-9]+$" | sort -V | tail -1 || true
-}
-
-find_latest_tag_for_major() {
-  local major="$1"
-  echo "Looking for latest ${major}.*.* tag..." >&2
-  echo "${all_tags}" | grep -E "^${major}\." | sort -V | tail -1 || true
-}
-
 echo "Finding previous tag for ${release_tag}..." >&2
 
-if [ "${patch}" -ne 0 ]; then
-  # Exclude release_tag itself: if the tag was already created before this script
-  # runs (e.g. on workflow retry), we must not return it as its own previous tag.
-  all_tags=$(echo "${all_tags}" | grep -v "^${release_tag}$" || true)
-  previous=$(find_latest_tag_for_minor "${major}" "${minor}")
-elif [ "${minor}" -ne 0 ]; then
-  prev_minor=$((minor - 1))
-  previous=$(find_latest_tag_for_minor "${major}" "${prev_minor}")
-else
-  prev_major=$((major - 1))
-  previous=$(find_latest_tag_for_major "${prev_major}")
-fi
+cur_major=${major}
+cur_minor=${minor}
+cur_patch=$((patch - 1))
+previous=""
+while [ -z "${previous}" ] && [ "${cur_major}" -ge 0 ]; do
+  while [ -z "${previous}" ] && [ "${cur_minor}" -ge 0 ]; do
+    while [ -z "${previous}" ] && [ "${cur_patch}" -ge 0 ]; do
+      tag="${cur_major}.${cur_minor}.${cur_patch}"
+      if echo "${all_tags}" | grep -qx "${tag}"; then
+        previous="${tag}"
+      fi
+      cur_patch=$((cur_patch - 1))
+    done
+    cur_minor=$((cur_minor - 1))
+    cur_patch=0
+  done
+  cur_major=$((cur_major - 1))
+  cur_minor=0
+  cur_patch=0
+done
 
 if [ -z "${previous}" ]; then
   echo "ERROR: No previous release tag found" >&2
