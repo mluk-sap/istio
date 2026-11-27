@@ -98,10 +98,10 @@ render_output() {
   local output=""
   for section in "${section_order[@]}"; do
     if [ "${section}" = "Dependency Updates" ]; then continue; fi  # appended last below
-    output+=$(printf '\n## %s\n\n%s\n' "${section}" "${sections[${section}]}")
+    output+=$(printf '\n## %s\n\n%s\n\n' "${section}" "${sections[${section}]}")
   done
   if [ -n "${sections[Dependency Updates]+x}" ]; then
-    output+=$(printf '\n## %s\n\n%s\n' "Dependency Updates" "${sections[Dependency Updates]}")
+    output+=$(printf '\n## %s\n\n%s\n\n' "Dependency Updates" "${sections[Dependency Updates]}")
   fi
   printf '%s' "${output}"
 }
