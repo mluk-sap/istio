@@ -84,13 +84,11 @@ jobs:
 
           existing="$(gh pr list --head "${branch}" --base "${base}" --state open --json number --jq '.[0].number')"
           if [ -n "${existing}" ]; then
-            gh pr edit "${existing}" --title "${title}" --body-file "${PR_BODY_FILE}" \
-              --add-label "kind/istio-upgrade"
+            gh pr edit "${existing}" --title "${title}" --body-file "${PR_BODY_FILE}"
           else
             gh pr create \
               --base "${base}" \
               --head "${branch}" \
               --title "${title}" \
-              --body-file "${PR_BODY_FILE}" \
-              --label "kind/istio-upgrade"
+              --body-file "${PR_BODY_FILE}"
           fi
