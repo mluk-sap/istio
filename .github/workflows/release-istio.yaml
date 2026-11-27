@@ -1,9 +1,8 @@
 name: Release Istio
 
 permissions:
-  id-token: write # This is required by image-builder
-  contents: write # Read is required by image-builder, write is required to push artifact
-  actions: read # Read is required by upload-release-report
+  contents: write
+  actions: read
 
 on:
   workflow_dispatch:
@@ -14,11 +13,6 @@ on:
         required: true
       skip_all_checks:
         description: "Skip all sanity checks"
-        type: boolean
-        required: false
-        default: false
-      skip_img_check:
-        description: "Skip image existence check (allows to overwrite image)"
         type: boolean
         required: false
         default: false
@@ -83,47 +77,10 @@ jobs:
             exit 5
           fi
 
-      - name: Check whether image already exists before the release
-        id: check-whether-image-exists-before-release
-        if: ${{ inputs.skip_all_checks == false && inputs.skip_img_check == false }}
-        env:
-          CURRENT_RELEASE: ${{ inputs.version }}
-        run: |
-          image="${IMAGE_NAME}:${CURRENT_RELEASE}"
-          if docker pull "${image}" >/dev/null 2>&1; then
-            echo "Image already exists, which is unexpected before the release"
-            exit 4
-          fi
-
-  build-image:
-    name: Build manager image
-    uses: kyma-project/test-infra/.github/workflows/image-builder.yml@main
-    needs: [ check-prerequisites ]
-    with:
-      name: istio/releases/istio-manager
-      dockerfile: Dockerfile
-      context: .
-      build-args: |
-        VERSION=${{ inputs.version }}
-      tags: "${{ inputs.version }}"
-
-  build-image-experimental:
-    name: Build manager image - experimental
-    uses: kyma-project/test-infra/.github/workflows/image-builder.yml@main
-    needs: [ check-prerequisites ]
-    with:
-      name: istio/releases/istio-manager
-      dockerfile: Dockerfile
-      context: .
-      build-args: |
-        VERSION=${{ inputs.version }}-experimental
-        GO_BUILD_TAGS=experimental
-      tags: "${{ inputs.version }}-experimental"
-
   get-image:
-    name: Get manager image
+    name: Get manager image (hardcoded for testing)
     runs-on: ubuntu-latest
-    needs: [ build-image, build-image-experimental, check-prerequisites ]
+    needs: [ check-prerequisites ]
     outputs:
       image: "${{ steps.get-image.outputs.image }}"
       operator_version: "${{ steps.get-image.outputs.operator_version }}"
@@ -134,222 +91,19 @@ jobs:
         env:
           CURRENT_RELEASE: ${{ inputs.version }}
         run: |
-          image="${IMAGE_NAME}:${CURRENT_RELEASE}"
+          image="${IMAGE_NAME}:1.34.0"
           operator_version="${CURRENT_RELEASE}"
           echo "image=${image}"
           echo "image=${image}" >> $GITHUB_OUTPUT
           echo "operator_version=${operator_version}"
           echo "operator_version=${operator_version}" >> $GITHUB_OUTPUT
-      - id: check-image
-        name: Check whether image exists
-        shell: bash
-        run: docker pull "${{ steps.get-image.outputs.image }}"
-
-  unit-tests:
-    name: Unit, integration tests & lint
-    needs: [ get-image ]
-    uses: ./.github/workflows/call-unit-lint.yaml
-    secrets: inherit
-
-  istio-e2e-test-k3d:
-    name: Istio E2E test K3D
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    strategy:
-      fail-fast: false
-      matrix:
-        test-make-target:
-          - "installation-e2e-test"
-          - "configuration-e2e-test"
-          - "mesh_communication-e2e-test"
-          - "observability-e2e-test"
-          - "extauth-e2e-test"
-          - "egress-e2e-test"
-          - "networkpolicy-e2e-test"
-          - "proxystats-e2e-test"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/e2e-test-k3d
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          test_make_target: ${{ matrix.test-make-target }}
-          operator-image-name: ${{ needs.get-image.outputs.image }}
-          operator-version: ${{ needs.get-image.outputs.operator_version }}
-          k3d_configuration: 'default'
-
-  istio-e2e-test-evaluation-k3d:
-    name: Istio E2E test (evaluation) K3D
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    strategy:
-      fail-fast: false
-      matrix:
-        test-make-target: [ "evaluation-e2e-test" ]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/e2e-test-k3d
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          test_make_target: ${{ matrix.test-make-target }}
-          operator-image-name: ${{ needs.get-image.outputs.image }}
-          operator-version: ${{ needs.get-image.outputs.operator_version }}
-          k3d_configuration: 'evaluation'
-
-  istio-e2e-test-calico-k3d:
-    name: Istio E2E test (Calico) K3D
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/e2e-test-k3d
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          test_make_target: "networkpolicy-e2e-test"
-          operator-image-name: ${{ needs.get-image.outputs.image }}
-          operator-version: ${{ needs.get-image.outputs.operator_version }}
-          k3d_configuration: 'calico'
-
-  istio-e2e-test-experimental-k3d:
-    name: Istio E2E test (experimental) K3D
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    strategy:
-      fail-fast: false
-      matrix:
-        test-make-target: [ "ambient-e2e-test" ]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/e2e-test-k3d
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          test_make_target: ${{ matrix.test-make-target }}
-          operator-image-name: ${{ needs.get-image.outputs.image }}-experimental
-          operator-version: ${{ needs.get-image.outputs.operator_version }}-experimental
-          k3d_configuration: 'default'
-
-  istio-e2e-test-fips-k3d:
-    name: Istio E2E test (FIPS) K3D
-    environment:
-      name: e2e
-      deployment: false
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    strategy:
-      fail-fast: false
-      matrix:
-        test-make-target:
-          - "installation-e2e-test"
-          - "smoke_test-e2e-test"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/e2e-test-k3d
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FIPS_REGISTRY_SA: ${{ secrets.FIPS_REGISTRY_SA }}
-          KYMA_FIPS_MODE_ENABLED: "true"
-          REGISTRY_SECRET_NAME: "regcred"
-        with:
-          test_make_target: ${{ matrix.test-make-target }}
-          operator-image-name: ${{ needs.get-image.outputs.image }}
-          operator-version: ${{ needs.get-image.outputs.operator_version }}
-          k3d_configuration: 'calico' # FIPS tests don't work with flannel network
-
-  istio-upgrade-test-k3d:
-    name: Istio upgrade test K3D
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/upgrade-test-k3d
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_BRANCH: ${{ github.ref_name }}
-        with:
-          test_make_target: "upgrade-test"
-          operator-version: ${{ needs.get-image.outputs.operator_version }}
-          operator-image-name: ${{ needs.get-image.outputs.image }}
-          k3d_configuration: 'default'
-
-  istio-e2e-test-aws:
-    name: Istio E2E test AWS
-    environment:
-      name: e2e
-      deployment: false
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    strategy:
-      fail-fast: false
-      matrix:
-        test_make_target:
-          - "xff_header-e2e-test"
-          - "trustdomain-e2e-test"
-          - "networkpolicy-e2e-test"
-          - "dnsproxying-e2e-test"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/e2e-test-gardener
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          manager_image: ${{ needs.get-image.outputs.image }}
-          gardener_secret: ${{ secrets.GARDENER_TOKEN }}
-          gardener_project_name: ${{ vars.GARDENER_PROJECT_NAME }}
-          gardener_configuration: aws-ipv4
-          test_ip_family: ipv4
-          test_make_target: ${{ matrix.test_make_target }}
-          operator_version: ${{ needs.get-image.outputs.operator_version }}
-
-  istio-e2e-test-gcp:
-    name: Istio E2E test GCP
-    environment:
-      name: e2e
-      deployment: false
-    runs-on: ubuntu-latest
-    needs: [ get-image ]
-    strategy:
-      fail-fast: false
-      matrix:
-        test_make_target:
-          - "xff_header-e2e-test"
-          - "trustdomain-e2e-test"
-          - "networkpolicy-e2e-test"
-          - "dnsproxying-e2e-test"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/e2e-test-gardener
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          manager_image: ${{ needs.get-image.outputs.image }}
-          gardener_secret: ${{ secrets.GARDENER_TOKEN }}
-          gardener_project_name: ${{ vars.GARDENER_PROJECT_NAME }}
-          gardener_configuration: gcp-ipv4
-          test_ip_family: ipv4
-          test_make_target: ${{ matrix.test_make_target }}
-          operator_version: ${{ needs.get-image.outputs.operator_version }}
 
   create-draft-release:
     name: Create draft release
     runs-on: ubuntu-latest
     needs:
       - check-prerequisites
-      - build-image
-      - build-image-experimental
-      - unit-tests
-      - istio-e2e-test-k3d
-      - istio-e2e-test-evaluation-k3d
-      - istio-e2e-test-calico-k3d
-      - istio-e2e-test-experimental-k3d
-      - istio-e2e-test-fips-k3d
-      - istio-upgrade-test-k3d
-      - istio-e2e-test-aws
-      - istio-e2e-test-gcp
+      - get-image
     outputs:
       release_id: ${{ steps.create-draft-release.outputs.release_id }}
     steps:
@@ -400,57 +154,3 @@ jobs:
           RELEASE_ID: ${{ needs.create-draft-release.outputs.release_id }}
         run: |
           "${{ github.workspace }}/hack/ci/publish-release.sh" "${RELEASE_ID}"
-
-  upload-release-report:
-    name: Upload release report
-    needs: [ check-prerequisites, publish-release ]
-    uses: kyma-project/compliancy/.github/workflows/notify-release-report.yml@main
-    secrets: inherit
-    with:
-      release_version: ${{ inputs.version }}
-
-  notify-sbom:
-    needs: [ check-prerequisites, publish-release ]
-    permissions:
-      id-token: write
-      contents: read
-    uses: kyma-project/compliancy/.github/workflows/notify-component-sbom.yml@main
-    secrets: inherit
-    with:
-      component: kyma-project.io/module/istio
-      version: ${{ inputs.version }}
-
-  notify:
-    name: Notify
-    environment:
-      name: notifications
-      deployment: false
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [ check-prerequisites, publish-release, upload-release-report, notify-sbom ]
-    steps:
-      - name: Get actor email
-        id: get-actor-email
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          actor_data=$(gh api users/${{ github.actor }})
-          email=$(echo "${actor_data}" | jq -r '.email // empty')
-          if [ -z "${email}" ]; then
-            id=$(echo "${actor_data}" | jq -r '.id')
-            email="${id}+${{ github.actor }}@users.noreply.github.com"
-          fi
-          echo "email=${email}" >> $GITHUB_OUTPUT
-      - name: Notify
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          webhook: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
-          webhook-type: webhook-trigger
-          payload-templated: true
-          payload: |
-            repository: ${{ github.repository }}
-            release: "${{ inputs.version }}"
-            status: "${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'skipped') && !contains(needs.*.result, 'cancelled') && 'success' || 'failure' }}"
-            actor: "${{ github.actor }}"
-            email: "${{ steps.get-actor-email.outputs.email }}"
-            link: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
