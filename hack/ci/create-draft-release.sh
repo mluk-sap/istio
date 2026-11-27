@@ -66,15 +66,16 @@ if [ "$(echo "${existing_ids}" | wc -l)" -gt 1 ]; then
 fi
 
 if [ -n "${existing_id}" ]; then
-  echo "Found existing draft release (id: ${existing_id}), updating..."
+  echo "Found existing draft release (id: ${existing_id}), updating (tag_name: ${release_tag})..."
   curl -s -S -f -L \
     -X PATCH \
     -H "Accept: application/vnd.github+json" \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     "${github_api_repo_url}/releases/${existing_id}" \
-    -d "$(jq -n --arg body "${body}" --arg branch "${current_branch}" \
-      '{"body": $body, "target_commitish": $branch}')" > /dev/null
+    -d "$(jq -n --arg tag_name "${release_tag}" --arg body "${body}" --arg branch "${current_branch}" \
+      '{"tag_name": $tag_name, "body": $body, "target_commitish": $branch}')" > /dev/null
+  echo "Updated draft release (id: ${existing_id})"
   release_id="${existing_id}"
 else
   echo "No existing draft release found, creating new draft for ${release_tag}..."
