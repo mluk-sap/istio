@@ -38,5 +38,6 @@ jobs:
         run: |
           for branch in main $(bash hack/ci/find-maintained-release-branches.sh); do
             echo "Dispatching istio-images-updater-worker for ${branch}"
-            gh workflow run istio-images-updater-worker.yaml --ref "${branch}"
+            gh workflow run istio-images-updater-worker.yaml --ref "${branch}" \
+              || echo "WARNING: failed to dispatch istio-images-updater-worker for ${branch}"
           done
