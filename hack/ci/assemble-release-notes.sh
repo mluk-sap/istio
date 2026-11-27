@@ -95,13 +95,16 @@ append_to_section() {
 # --- output rendering ---
 
 render_output() {
-  local output=""
+  local output="" separator=""
   for section in "${section_order[@]}"; do
     if [ "${section}" = "Dependency Updates" ]; then continue; fi  # appended last below
-    output+=$(printf '\n## %s\n\n%s\n\n' "${section}" "${sections[${section}]}")
+    printf -v block '%s## %s\n\n%s\n\n' "${separator}" "${section}" "${sections[${section}]}"
+    output+="${block}"
+    separator=$'\n'
   done
   if [ -n "${sections[Dependency Updates]+x}" ]; then
-    output+=$(printf '\n## %s\n\n%s\n\n' "Dependency Updates" "${sections[Dependency Updates]}")
+    printf -v block '%s## %s\n\n%s\n\n' "${separator}" "Dependency Updates" "${sections[Dependency Updates]}"
+    output+="${block}"
   fi
   printf '%s' "${output}"
 }
